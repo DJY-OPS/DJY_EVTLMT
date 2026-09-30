@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include "djy_tuning_parameters.h"
 
 /* Dedicated ESP32 <-> Rear STM32 UART link.  Commands are refreshed at
  * 10 Hz; Rear accepts them only while valid frames keep arriving. */
@@ -56,8 +57,8 @@ static inline bool djy_uart_unpack_live_tv(DjyUartLiveTv *command,
         data[0] != DJY_UART_MAGIC_0 || data[1] != DJY_UART_MAGIC_1 ||
         data[2] != DJY_UART_PROTOCOL_VERSION || data[3] != DJY_UART_TYPE_LIVE_TV ||
         data[8] != djy_uart_crc8(data, 8u) ||
-        data[5] > 100u || data[6] > 100u ||
-        (data[5] % 5u) != 0u || (data[6] % 5u) != 0u ||
+        djy_tuning_validate(DJY_PARAM_TV_STRENGTH, data[5]) != DJY_TUNING_OK ||
+        djy_tuning_validate(DJY_PARAM_TV_LIMIT, data[6]) != DJY_TUNING_OK ||
         (data[7] & (uint8_t)~DJY_UART_TV_FLAG_MASK) != 0u) {
         return false;
     }
