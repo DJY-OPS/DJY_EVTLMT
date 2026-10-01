@@ -80,19 +80,19 @@ class BatteryDashboardTests(unittest.TestCase):
                 gateway.forward_socket.close()
 
     def test_confirmed_geometry_and_preserved_board_speed(self):
-        self.assertAlmostEqual(speed_kmh(800, 1200), 21.2057504117)
+        self.assertAlmostEqual(speed_kmh(800, 1200), 14.6809041312)
         self.assertEqual(speed_kmh(0, 0), 0)
         data = {'rpm_left': 800, 'rpm_right': 1200, 'motor_left_ok': True,
                 'motor_right_ok': True, 'vehicle_speed_m_s': 99, 'speed_kmh': 88}
         result = with_verified_speed(data)
-        self.assertAlmostEqual(result['speed_kmh'], 21.2057504117)
+        self.assertAlmostEqual(result['speed_kmh'], 14.6809041312)
         self.assertEqual(result['vehicle_speed_m_s'], 99)
         self.assertEqual(result['speed_reported_kmh'], 88)
         self.assertEqual(with_verified_speed({**data, 'motor_left_ok': False})['speed_kmh'], 88)
         store = TelemetryStore()
         store.update(data, now=10)
         from tuning import project as tv_project
-        self.assertAlmostEqual(tv_project(store.snapshot(now=10))['speed_kmh'], 21.206, places=3)
+        self.assertAlmostEqual(tv_project(store.snapshot(now=10))['speed_kmh'], 14.681, places=3)
         self.assertIsNone(tv_project(store.snapshot(now=12))['speed_kmh'])
 
 

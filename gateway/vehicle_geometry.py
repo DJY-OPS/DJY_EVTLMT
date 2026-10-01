@@ -1,7 +1,9 @@
 """Vehicle dimensions confirmed by the user on 2026-09-20."""
 import math
 
-GEAR_RATIO = 4.0
+SPROCKET_REAR_TEETH = 52
+SPROCKET_FRONT_TEETH = 9  # 2026-10-01 9T fitted (was 11T); keep equal to STM vehicle_params.h
+GEAR_RATIO = SPROCKET_REAR_TEETH / SPROCKET_FRONT_TEETH
 TIRE_DIAMETER_M = 0.45
 TIRE_RADIUS_M = TIRE_DIAMETER_M / 2.0
 
@@ -22,5 +24,5 @@ def with_verified_speed(data):
             result['speed_reported_kmh'] = data['speed_kmh']
         result['speed_kmh'] = speed_kmh(left, right)
         result['speed_online'] = data.get('rpm_left_online', True) and data.get('rpm_right_online', True)
-        result['speed_geometry'] = 'DIAMETER_0.45M_GEAR_4'
+        result['speed_geometry'] = f'DIAMETER_0.45M_GEAR_{SPROCKET_REAR_TEETH}_{SPROCKET_FRONT_TEETH}'
     return result
