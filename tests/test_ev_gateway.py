@@ -140,7 +140,7 @@ class EVGatewayTests(unittest.TestCase):
         self.assertTrue(packet["wifi_connected"])
         self.assertEqual(packet["wifi_rssi_dbm"], -61)
         self.assertEqual(packet["internet_relay_tx"], 12)
-        expected = ((1604 + 2609) / 2 / (52 / 9)) * (math.pi * 0.45) / 60 * 3.6
+        expected = ((1604 + 2609) / 2 / (52 / 10)) * (math.pi * 0.45) / 60 * 3.6
         self.assertAlmostEqual(packet["speed_kmh"], expected, places=3)
 
     def test_normalizes_future_esp_wireless_bms_packet(self):

@@ -2,7 +2,7 @@
 import math
 
 SPROCKET_REAR_TEETH = 52
-SPROCKET_FRONT_TEETH = 9  # 2026-10-01 9T fitted (was 11T); keep equal to STM vehicle_params.h
+SPROCKET_FRONT_TEETH = 10  # 2026-10-01 10T fitted (9T did not fit; was 11T); keep equal to STM vehicle_params.h
 GEAR_RATIO = SPROCKET_REAR_TEETH / SPROCKET_FRONT_TEETH
 TIRE_DIAMETER_M = 0.45
 TIRE_RADIUS_M = TIRE_DIAMETER_M / 2.0
