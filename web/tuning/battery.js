@@ -1,6 +1,7 @@
 'use strict';
 window.batteryDashboard = {
-  groups: {power:'01 · 배터리 전력 / 좌우 출력 요구',voltage:'02 · 팩 전압',current:'03 · 팩 전류',delta:'04 · 토크벡터링 ΔP',yaw:'05 · 목표 / 실제 yaw',throttle:'06 · 스로틀',speed:'07 · 차속',cells:'08 · 최고 / 최저 셀 전압',imbalance:'09 · 셀 전압 편차',temperature:'10 · 온도',soc:'11 · 잔량'},
+  groups: {electrical:'팩 전압·전류·소비전력',cells:'최고·최저 셀 전압 / 편차',temperature:'최고·최저 온도',soc:'배터리 잔량'},
+  groupFor(c) { return ['power','voltage','current'].includes(c.group)?'electrical':c.group==='imbalance'?'cells':c.group; },
   render(values,status,view,selected,showingCurrent) {
     const unit=(v,u,d=1)=>finite(v)?format(v,d)+' '+u:'미수신';
     const on=v=>v===true?'ON':v===false?'OFF':'미수신';
@@ -10,9 +11,8 @@ window.batteryDashboard = {
     $('packVoltage').textContent=format(values.battery_pack_voltage_v,1);
     $('packCurrent').textContent=format(values.battery_current_a,1);
     $('packSoc').textContent=format(values.battery_soc_pct,1);
-    $('commandTotal').textContent=unit(values.power_command_total_kw,'kW',3);
-    $('commandSides').textContent=`좌 ${unit(values.power_left_kw,'kW',3)} / 우 ${unit(values.power_right_kw,'kW',3)} · 요구값`;
-    $('batterySpeed').textContent=unit(values.speed_kmh,'km/h',2);
+    $('packTemperature').textContent=`${unit(values.bms_temp_min_c,'°C')} / ${unit(values.bms_temp_max_c,'°C')}`;
+    $('packImbalance').textContent=unit(values.bms_cell_delta_mv,'mV',0);
     let hasChange=false;
     for(const [key,id,u,d] of [['battery_pack_voltage_v','voltageChange','V',1],['battery_current_a','currentChange','A',1],['battery_power_w','powerChange','W',0]]){
       const first=view.rows.find(r=>r.id&&finite(r.values[key])&&(!selected||r.time_ms<=selected.time_ms));

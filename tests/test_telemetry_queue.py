@@ -25,7 +25,8 @@ struct Stream {
     virtual size_t readBytes(char*,size_t)=0;
     virtual size_t write(uint8_t)=0;
 };
-TelemetryQueue<1536,256,96*1024> relaySamples;
+TelemetryQueue<1536,256,96*1024> relayStorage;
+auto* relaySamples = &relayStorage;
 ''' + body + r'''
 int main() {
     TelemetryQueue<64,4> q;
@@ -65,16 +66,16 @@ int main() {
 
     // Real HTTP Stream adapter: prefix, wrapped FIFO data, commas, closing
     // brace, EOF, and appends during an in-flight frozen batch.
-    assert(relaySamples.push(1,"[1]")); assert(relaySamples.push(2,"[2]"));
+    assert(relaySamples->push(1,"[1]")); assert(relaySamples->push(2,"[2]"));
     size_t arrayLength=0;
-    const auto rows=relaySamples.batchInfo(65536,64,last,arrayLength);
+    const auto rows=relaySamples->batchInfo(65536,64,last,arrayLength);
     RelayBody body("{\"samples\":",rows,arrayLength);
     assert(body.peek()=='{' && body.available()==static_cast<int>(strlen("{\"samples\":[[1],[2]]}")));
     std::string streamed;
     while(body.available()) {
         char part[3]; const auto n=body.readBytes(part,sizeof(part)); assert(n);
         streamed.append(part,n);
-        if(streamed.size()==3) assert(relaySamples.push(3,"[3]"));
+        if(streamed.size()==3) assert(relaySamples->push(3,"[3]"));
     }
     assert(streamed=="{\"samples\":[[1],[2]]}");
     assert(body.peek()==-1 && body.read()==-1);

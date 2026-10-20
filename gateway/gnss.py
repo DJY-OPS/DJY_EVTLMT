@@ -365,4 +365,8 @@ class GNSSManager:
                     gnss_received_timestamp_s=p['received_ts'], gnss_calibration_id=p['calibration_id'],
                     gnss_age_ms=max(0,(time.time()-p['ts'])*1000), gnss_fix_type=3 if p['altitude'] is not None else 2,
                     lap_time_s=status['lap_time_s'] or 0, last_lap_s=status['last_lap_s'] or 0,
-                    best_lap_s=status['best_lap_s'] or 0, gnss_lap_active=self.active, gnss_lap_count=status['lap_count'])
+                    best_lap_s=status['best_lap_s'] or 0, gnss_lap_active=status['active'], gnss_lap_count=status['lap_count'],
+                    gnss_epoch=status['epoch'], gnss_run_id=status['run_id'], gnss_lap_reason=status['reason'],
+                    previous_lap_s=status['laps'][-2]['lap_time_s'] if len(status['laps']) >= 2 else None,
+                    lap_delta_s=(status['laps'][-1]['lap_time_s']-status['laps'][-2]['lap_time_s'])
+                        if len(status['laps']) >= 2 else None)

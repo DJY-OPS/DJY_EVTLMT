@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "transport": "legacy_live_tv_v1",
+  "persistence": "volatile_lease",
+  "parameters": [
+    {"id": 1, "key": "strength_pct", "symbol": "TV_STRENGTH", "group": "differential", "label": "좌우 구동력 배분 강도", "unit": "%", "type": "integer", "scale": 1, "min": 0, "max": 100, "step": 5, "access": "live", "telemetry": "tv_applied_pct", "description": "TV 또는 전자식 차동이 계산한 좌우 출력 차이에 곱하는 비율입니다. 총출력이나 바퀴 RPM 잠김을 설정하지 않습니다."},
+    {"id": 2, "key": "limit_pct", "symbol": "TV_LIMIT", "group": "differential", "label": "배분 강도 상한", "unit": "%", "type": "integer", "scale": 1, "min": 0, "max": 100, "step": 5, "access": "live", "telemetry": "tv_limit_pct", "description": "요청 강도의 최대 허용값입니다. 목표 강도는 요청과 상한 중 작은 값이며, 적용값은 변화율 제한에 따라 이동합니다."},
+    {"id": 3, "key": "tv_enable", "symbol": "TV_ENABLE", "group": "differential", "label": "차동 개입 허용", "unit": "", "type": "boolean", "scale": 1, "min": 0, "max": 1, "step": 1, "access": "live", "telemetry": null, "description": "해제 시 강도 0%를 요청합니다. 구동 전원 차단이나 비상정지 기능은 아닙니다."},
+    {"id": 101, "key": "pid_kp", "symbol": "PID_KP", "group": "pid", "label": "비례 게인 · Kp", "unit": "", "type": "fixed", "scale": 1000, "access": "read_only", "telemetry": "pid_kp", "description": "현재 yaw 오차에 대한 반응입니다. STM 쓰기 명령과 검증 범위 확정 후 조정을 지원합니다."},
+    {"id": 102, "key": "pid_ki", "symbol": "PID_KI", "group": "pid", "label": "적분 게인 · Ki", "unit": "", "type": "fixed", "scale": 1000, "access": "read_only", "telemetry": "pid_ki", "description": "누적 yaw 오차에 대한 반응입니다. 향후 변경 시 적분 상태 처리까지 함께 검증해야 합니다."},
+    {"id": 103, "key": "pid_kd", "symbol": "PID_KD", "group": "pid", "label": "미분 게인 · Kd", "unit": "", "type": "fixed", "scale": 1000, "access": "read_only", "telemetry": "pid_kd", "description": "yaw 오차 변화에 대한 반응입니다. 현재 보드 보고값만 표시합니다."},
+    {"id": 201, "key": "tv_ramp_pct_s", "symbol": "TV_RAMP", "group": "response", "label": "강도 변화율", "unit": "%/s", "type": "integer", "scale": 1, "access": "read_only", "telemetry": "tv_ramp_pct_s", "description": "강도가 목표값으로 이동하는 속도입니다. 현재 UART 조정 명령에는 쓰기 항목이 없습니다."},
+    {"id": 202, "key": "delta_power_max_kw", "symbol": "DELTA_POWER_MAX", "group": "response", "label": "좌우 차동 출력 상한", "unit": "kW", "type": "fixed", "scale": 1000, "access": "planned", "telemetry": null, "description": "향후 항목입니다. 차량별 범위와 STM 제어 적용 지점을 검증한 뒤 활성화합니다."},
+    {"id": 301, "key": "power_budget_kw", "symbol": "POWER_BUDGET", "group": "power", "label": "총출력 요청 예산", "unit": "kW", "type": "fixed", "scale": 1000, "access": "planned", "telemetry": null, "description": "향후 주행 모드용 항목입니다. 출력 명령 예산만으로 배터리 실측 전력을 보장하지 않습니다."}
+  ]
+}

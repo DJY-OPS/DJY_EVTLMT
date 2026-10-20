@@ -32,6 +32,9 @@ with tempfile.TemporaryDirectory() as directory:
                         'vehicle_speed_m_s':12, 'speed_kmh':43.2, 'speed_online':True,
                         'yaw_error_rad_s':-.125, 'delta_power_kw':.5, 'traction_scale':.75,
                         'tv_active':True, 'ed_active':False,
+                        'battery_pack_voltage_v':72, 'battery_current_a':-20+seq%10,
+                        'battery_soc_pct':82, 'bms_online':True, 'bms_fault':False,
+                        'bms_temp_max_c':28, 'bms_cell_delta_mv':23,
                         'pid_kp':20, 'pid_ki':1, 'pid_kd':0, 'pid_online':True,
                         'tps_raw':0, 'tps_pct':0, 'tps_ok':True, 'sas_deg':seq%20-10, 'sas_ok':True})
     gateway.set_recording(False)
@@ -57,7 +60,16 @@ with tempfile.TemporaryDirectory() as directory:
             page.wait_for_function("document.querySelector('#mode').textContent.includes('1페이지')")
             assert page.locator('#actual').inner_text() != '미수신'
             assert page.locator('#value-motor_left_voltage_v').inner_text().startswith('미수신')
-            assert page.locator('#plots canvas').count() == 13
+            assert page.locator('#plots canvas').count() == 4
+            assert page.locator('#tv-graphs canvas').count() == 1
+            assert page.locator('#vehicle-graphs canvas').count() == 2
+            assert page.locator('#battery-graphs canvas').count() == 1
+            assert page.locator('#cells').count() == 0
+            assert page.locator('#plot-tv #plot-value-traction_scale').count() == 1
+            for key in ('desired_yaw_rad_s', 'yaw_rate_rad_s', 'yaw_error_rad_s', 'power_left_kw', 'power_right_kw', 'delta_power_kw', 'rpm_left', 'rpm_right', 'tv_active', 'ed_active'):
+                assert page.locator(f'#plot-tv #plot-value-{key}').count() == 1
+            assert page.locator('#plot-steering #plot-value-tps_pct').count() == 1
+            assert page.locator('#plot-battery_summary #plot-value-battery_soc_pct').count() == 1
             assert page.evaluate('getComputedStyle(document.body).backgroundColor') == 'rgb(0, 0, 0)'
             assert page.locator('#pid').inner_text() == '20.000 / 1.000 / 0.000'
             assert page.locator('#speed').inner_text() == '43.2'
@@ -85,8 +97,8 @@ with tempfile.TemporaryDirectory() as directory:
             assert '#00ffff' in stroke_colors()
             for checkbox in page.locator('#channels input').all():
                 checkbox.uncheck()
-            assert page.locator('#plots canvas').count() == 13
-            assert set(stroke_colors()) <= {'#555555', '#ffffff'}
+            assert page.locator('#plots canvas').count() == 4
+            assert set(stroke_colors()) <= {'#555555', '#333333', '#ffffff'}
             for checkbox in page.locator('#channels input').all():
                 checkbox.check()
             page.locator('#next').click()
@@ -95,7 +107,7 @@ with tempfile.TemporaryDirectory() as directory:
             page.locator('#prev').click()
             page.wait_for_function("document.querySelector('#mode').textContent.includes('1페이지')")
             page.locator('#window').select_option('all')
-            page.locator('#canvas-yaw').hover()
+            page.locator('#canvas-tv').hover()
             assert '선택 ' in page.locator('#cursorTime').inner_text()
             assert 'rad/s' in page.locator('#plot-value-desired_yaw_rad_s').inner_text()
             with page.expect_download() as download:
@@ -119,7 +131,7 @@ with tempfile.TemporaryDirectory() as directory:
             page.wait_for_function("document.querySelector('#tv-vehicle_speed_m_s').textContent==='미수신'")
             assert page.locator('#speed').inner_text() == '미수신'
             page.locator('#record').click()
-            page.wait_for_function("document.querySelector('#record').textContent==='측정 종료'")
+            page.wait_for_function("state.recording && !state.recordBusy && document.querySelector('#record').dataset.recordState==='recording'")
             page.locator('#pause').click()
             assert gateway.database.status()['recording_active']
             before = page.evaluate('state.live.filter(r=>r.id).length')
@@ -138,13 +150,13 @@ with tempfile.TemporaryDirectory() as directory:
             ids = page.evaluate('state.live.filter(r=>r.id).map(r=>r.id)')
             assert len(ids) == len(set(ids))
             page.locator('#record').click()
-            page.wait_for_function("document.querySelector('#record').textContent==='측정 시작'")
+            page.wait_for_function("!state.recording && !state.recordBusy")
             page.set_viewport_size({'width':390,'height':844})
             page.screenshot(path=str(ROOT/'.local/tuning-mobile.png'),full_page=True)
             assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
             assert not errors, errors
             browser.close()
-        print(json.dumps({'browser':'Edge','errors':errors,'checks':['13 purpose panels','black background',f'{len(CHANNELS)} channels','PID and TV values','stale/missing PID and speed','reported RPM vs quality','explicit/missing target RPM','history RPM status','per-line visibility','hide all','history pages','missing voltage','cursor','CSV values and quality','record start/stop','pause keeps recording','mobile layout']}))
+        print(json.dumps({'browser':'Edge','errors':errors,'checks':['single TV overlay and single battery overlay','black background',f'{len(CHANNELS)} channels','PID and TV values','stale/missing PID and speed','reported RPM vs quality','explicit/missing target RPM','history RPM status','per-line visibility','hide all','history pages','missing voltage','cursor','CSV values and quality','record start/stop','pause keeps recording','mobile layout']}))
     finally:
         server.shutdown()
         server.server_close()

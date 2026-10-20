@@ -9,7 +9,7 @@ import unittest
 from host_compiler import compiler
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-_candidates = (ROOT.parent / 'DJY_TQV', ROOT.parents[1] / 'DJY_TQV',
+_candidates = (ROOT.parent / 'DJY_EVTQV', ROOT.parent / 'DJY_TQV', ROOT.parents[1] / 'DJY_TQV',
                ROOT.parents[1] / 'DJY_TQV' / 'DJY_TQV')
 BASE = pathlib.Path(os.environ.get('DJY_TQV_REPOSITORY',
     str(next((p for p in _candidates if (p / '.git').exists()), _candidates[0]))))
@@ -19,7 +19,7 @@ REVISION = re.search(r"\$revision = '([0-9a-f]+)'",
 
 
 def pinned(relative):
-    return subprocess.run(['git', '-C', str(BASE), 'show',
+    return subprocess.run(['git', '-c', 'safe.directory='+BASE.as_posix(), '-C', str(BASE), 'show',
                            f'{REVISION}:firmware/rear/Core/{relative}'],
                           check=True, capture_output=True, timeout=10).stdout
 

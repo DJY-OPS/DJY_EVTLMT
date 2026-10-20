@@ -134,7 +134,7 @@ int main() {
         source = (ROOT / "firmware/esp32_ev_gateway/src/main.cpp").read_text(encoding="utf-8")
         state = source[source.index("struct VehicleState {"):source.index("} bms;") + len("} bms;")]
         helpers = source[source.index("float throttlePercent()"):source.index("bool pitAllowed()")]
-        publish = source[source.index("void publishTelemetry() {"):source.index("    if (EV_LOCAL_UDP_ENABLED &&", source.index("void publishTelemetry() {"))]
+        publish = source[source.index("void publishTelemetry() {"):source.index("    bool sendLocal =", source.index("void publishTelemetry() {"))]
         harness = r'''
 #include <cstdint>
 #include <cstdio>
@@ -237,7 +237,7 @@ int main() {
             self.assertEqual(snapshot["sas_online"], count == 14)
             self.assertEqual(snapshot["sas_center_raw"], 6897)
             self.assertEqual(snapshot["tps_ok"], bool(count))
-            self.assertAlmostEqual(snapshot["speed_kmh"], 21.2057504117, places=2)
+            self.assertAlmostEqual(snapshot["speed_kmh"], 17.9433272715, places=2)
             self.assertEqual(packet["limit_reason"], "NONE")
             self.assertAlmostEqual(snapshot["sas_deg"], -7.162, places=2)
             self.assertFalse(store.snapshot(now=5.0)["sas_online"])

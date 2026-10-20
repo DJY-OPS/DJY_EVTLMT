@@ -141,7 +141,7 @@ class RearStatusParser:
             if dl <= 4095 and dr <= 4095:
                 packet.update(dac_left=dl, dac_right=dr, rear_output_online=True)
         # Preserve vehicle_speed_m_s as reported by STM. Display speed uses
-        # the confirmed 45 cm diameter and 4:1 gearing, subject to RPM quality.
+        # the confirmed 45 cm diameter and 52/11 gearing, subject to RPM quality.
         packet['speed_kmh'] = speed_kmh(left, right)
         packet['speed_online'] = packet['motor_left_ok'] and packet['motor_right_ok']
         warnings = []

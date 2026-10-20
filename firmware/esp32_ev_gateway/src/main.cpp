@@ -8,8 +8,15 @@
 #include <lwip/sockets.h>
 #include <time.h>
 #include <esp_system.h>
+#include <esp_heap_caps.h>
+#include <new>
 
+#if EV_LR_LINK
+#include "config_lr.h"
+#include <esp_wifi.h>
+#else
 #include "config.h"
+#endif
 #include "djy_can_protocol.h"
 #include "djy_uart_protocol.h"
 #include "djy_telemetry_protocol.h"
@@ -216,7 +223,10 @@ bool jsonStringEquals(const String& input, const char* key, const char* expected
     return end >= start && input.substring(start, end) == expected;
 }
 
-constexpr uint32_t kUsbBaud = 3000000u;
+#ifndef EV_USB_BAUD
+#define EV_USB_BAUD 3000000u
+#endif
+constexpr uint32_t kUsbBaud = EV_USB_BAUD;
 UsbTelemetry usbTelemetry;
 char relayColumns[3072] = {};
 char relayStreamId[17] = {};
@@ -224,7 +234,8 @@ char relayStreamId[17] = {};
 #if EV_RELAY_ENABLED
 portMUX_TYPE relayMux = portMUX_INITIALIZER_UNLOCKED;
 // Variable-length rows share 96 KiB instead of reserving 4 KiB per sample.
-TelemetryQueue<1536, 256, 96 * 1024> relaySamples;
+using RelayQueue = TelemetryQueue<1536, 256, 96 * 1024>;
+RelayQueue* relaySamples = nullptr;
 constexpr size_t kRelayBatchSize = 64 * 1024;
 // Only the header is copied; HTTPClient streams frozen FIFO rows directly.
 char relayPrefix[4096] = {};
@@ -253,7 +264,7 @@ public:
                 if (copied > length - used) copied = length - used;
                 memcpy(output + used, prefix_ + position_, copied);
             } else if (position_ < prefixLength_ + arrayLength_) {
-                copied = relaySamples.readBatch(output + used, position_ - prefixLength_, length - used, count_);
+                copied = relaySamples->readBatch(output + used, position_ - prefixLength_, length - used, count_);
             } else {
                 output[used] = '}'; copied = 1;
             }
@@ -399,14 +410,14 @@ void relayTask(void*) {
         size_t arrayLength = 0;
         const uint32_t exchangeStart = millis();
         portENTER_CRITICAL(&relayMux);
-        droppedSamples = relaySamples.dropped();
+        droppedSamples = relaySamples->dropped();
         const int prefix = snprintf(relayPrefix, sizeof(relayPrefix),
             "{\"stream_id\":\"%s\",\"sent_ms\":%lu,\"dropped_samples\":%lu,"
             "\"queue_samples\":%u,\"queue_bytes\":%u,\"columns\":%s,\"samples\":",
             relayStreamId, static_cast<unsigned long>(exchangeStart), static_cast<unsigned long>(droppedSamples),
-            static_cast<unsigned>(relaySamples.count()), static_cast<unsigned>(relaySamples.bytes()),
+            static_cast<unsigned>(relaySamples->count()), static_cast<unsigned>(relaySamples->bytes()),
             relayColumns[0] ? relayColumns : "[]");
-        queuedSamples = relaySamples.batchInfo(kRelayBatchSize - static_cast<size_t>(prefix) - 1, 64, lastSequence, arrayLength);
+        queuedSamples = relaySamples->batchInfo(kRelayBatchSize - static_cast<size_t>(prefix) - 1, 64, lastSequence, arrayLength);
         portEXIT_CRITICAL(&relayMux);
         if (queuedSamples == 0) {
             vTaskDelay(pdMS_TO_TICKS(20));
@@ -437,7 +448,7 @@ void relayTask(void*) {
                 if (ack == lastSequence) {
                     stageRelayCommand(response);
                     portENTER_CRITICAL(&relayMux);
-                    relaySamples.acknowledge(ack);
+                    relaySamples->acknowledge(ack);
                     ++relayTxCount;
                     relayLastSuccessMs = millis();
                     portEXIT_CRITICAL(&relayMux);
@@ -476,14 +487,14 @@ void stageTelemetry(const char* json) {
     if (!valid || (relayColumns[0] && strcmp(relayColumns, columns))) {
         usbTelemetry.reject();
 #if EV_RELAY_ENABLED
-        relaySamples.reject();
+        if (relaySamples) relaySamples->reject();
 #endif
     }
     else {
         if (!relayColumns[0]) memcpy(relayColumns, columns, strlen(columns) + 1);
         usbTelemetry.push(state.sequence, row);
 #if EV_RELAY_ENABLED
-        relaySamples.push(state.sequence, row);
+        if (relaySamples) relaySamples->push(state.sequence, row);
 #endif
     }
 #if EV_RELAY_ENABLED
@@ -576,9 +587,9 @@ float sasRelativeDeg() {
 }
 
 float speedKmh() {
-    // User-confirmed tire outside diameter 45 cm and reduction 4:1.
+    // User-confirmed tire diameter 45 cm; reduction 4.72727272...:1 (2026-09-30).
     // Keep STM vehicleSpeedMS separately as its original control input.
-    constexpr float kGearRatio = 4.0f, kTireRadiusM = 0.225f;
+    constexpr float kGearRatio = 52.0f / 11.0f, kTireRadiusM = 0.225f;
     // A single noisy/missing wheel must never become vehicle speed.
     if ((state.rpmLeft == 0u) != (state.rpmRight == 0u)) return 0.0f;
     const float motorRpm = 0.5f * (state.rpmLeft + state.rpmRight);
@@ -1123,8 +1134,8 @@ void sendPitConfig(const String& input) {
 void acceptLiveTvCommand(const String& input) {
     const int requested = jsonInteger(input, "strength_pct", -1);
     const int limit = jsonInteger(input, "limit_pct", -1);
-    if (requested < 0 || requested > 100 || limit < 0 || limit > 100 ||
-        (requested % 5) != 0 || (limit % 5) != 0) {
+    if (djy_tuning_validate(DJY_PARAM_TV_STRENGTH, requested) != DJY_TUNING_OK ||
+        djy_tuning_validate(DJY_PARAM_TV_LIMIT, limit) != DJY_TUNING_OK) {
         return;
     }
     const uint8_t sequence = static_cast<uint8_t>(jsonInteger(input, "request_id", 0));
@@ -1176,7 +1187,17 @@ void receiveCommands() {
         String input;
         input.reserve(length);
         while (commandUdp.available()) input += static_cast<char>(commandUdp.read());
-        if (trustedPit) handleCommand(input);
+        if (trustedPit) {
+#if EV_LR_LINK
+            if (input.startsWith("DJYLRPING:")) {
+                const String reply = "DJYLRPONG:" + input.substring(10);
+                commandUdp.beginPacket(pitHost, commandUdp.remotePort());
+                commandUdp.write(reinterpret_cast<const uint8_t*>(reply.c_str()), reply.length());
+                commandUdp.endPacket();
+            } else
+#endif
+            handleCommand(input);
+        }
     }
     // Commands/recording ACKs may be split across UART reads. Never wait for LF.
     static char usbInput[512];
@@ -1289,7 +1310,10 @@ void publishTelemetry() {
     relayTls = relayTlsError;
     portEXIT_CRITICAL(&relayMux);
 #endif
-    char json[kTelemetryJsonSize];
+    // Only loopTask calls this function; stageTelemetry copies the payload.
+    // Keep the large buffer off the 8 KiB loop stack so snprintf's float
+    // formatting cannot overflow it on the ESP32-S3.
+    static char json[kTelemetryJsonSize];
     char timingJson[256];
     if(!state.timing.json(timingJson,sizeof(timingJson)))return;
     // Compact metadata: version, seq, clock hi/lo (us), STM skips, RX gaps,
@@ -1416,7 +1440,16 @@ void publishTelemetry() {
     if (bmsJsonLength < 0 || static_cast<size_t>(bmsJsonLength) >= sizeof(json) - static_cast<size_t>(jsonLength) + 1u) return;
     jsonLength += bmsJsonLength - 1;  // BMS fields replace the original closing brace.
 
-    if (EV_LOCAL_UDP_ENABLED && WiFi.status() == WL_CONNECTED) {
+    bool sendLocal = EV_LOCAL_UDP_ENABLED && WiFi.status() == WL_CONNECTED;
+#if EV_LR_LINK
+    // LR is a low-throughput live view. Full-rate local USB staging remains below.
+    static uint32_t lastLrPublish = 0;
+    static bool lrPublished = false;
+    const uint32_t lrNow = millis();
+    sendLocal = sendLocal && (!lrPublished || lrNow - lastLrPublish >= DJY_LR_INTERVAL_MS);
+    if (sendLocal) { lastLrPublish = lrNow; lrPublished = true; }
+#endif
+    if (sendLocal) {
         // NetworkUDP::write() auto-flushes every 1460 bytes as a NEW datagram,
         // splitting this JSON into independently invalid messages. Native UDP
         // sends one datagram; IP fragmentation/reassembly stays below the app.
@@ -1447,6 +1480,17 @@ void setup() {
              static_cast<unsigned long>(esp_random()), static_cast<unsigned long>(esp_random()));
     Serial.setTimeout(10);
     Serial.println("# DJY ESP gateway boot");
+#if EV_RELAY_ENABLED
+    // Allocate once, after Arduino initializes PSRAM. Keep internal RAM for TLS.
+    void* queueMemory = psramFound()
+        ? heap_caps_malloc(sizeof(RelayQueue), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT)
+        : heap_caps_malloc(sizeof(RelayQueue), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    if (queueMemory) relaySamples = new (queueMemory) RelayQueue();
+    Serial.printf("# Relay queue=%s PSRAM=%lu free_internal=%lu\n",
+                  relaySamples ? (psramFound() ? "PSRAM" : "internal") : "allocation failed",
+                  (unsigned long)ESP.getPsramSize(),
+                  (unsigned long)heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
+#endif
     runStatusLedSelfTest();
     pinMode(EV_PIT_ENABLE_GPIO, INPUT_PULLUP);
 
@@ -1480,6 +1524,11 @@ void setup() {
     }
 
     WiFi.mode(WIFI_STA);
+#if EV_LR_LINK
+    ESP_ERROR_CHECK(esp_wifi_set_protocol(WIFI_IF_STA, WIFI_PROTOCOL_LR));
+    ESP_ERROR_CHECK(esp_wifi_set_bandwidth(WIFI_IF_STA, WIFI_BW_HT20));
+    Serial.println("# DJY LR vehicle: LR-only, live snapshot interval 500 ms, read-only telemetry");
+#endif
     WiFi.setSleep(false);
     WiFi.setAutoReconnect(true);
     WiFi.begin(EV_WIFI_SSID, EV_WIFI_PASSWORD);
@@ -1488,7 +1537,8 @@ void setup() {
     commandUdp.begin(EV_COMMAND_PORT);
     setStatusLed(0, 0, 64);
 #if EV_RELAY_ENABLED
-    xTaskCreatePinnedToCore(relayTask, "ev-https-relay", 12288, nullptr, 0, nullptr, 0);
+    if (relaySamples)
+        xTaskCreatePinnedToCore(relayTask, "ev-https-relay", 12288, nullptr, 0, nullptr, 0);
 #endif
     Serial.println("# DJY ESP gateway ready");
 }

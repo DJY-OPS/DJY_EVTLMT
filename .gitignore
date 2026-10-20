@@ -15,6 +15,7 @@ __pycache__/
 /data/*.db-shm
 /.local/
 firmware/esp32_ev_gateway/include/config.h
+firmware/esp32_lr_common/include/lr_config.h
 .pio/
 
 /_archive/

@@ -1,0 +1,26 @@
+﻿<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DJY EV · 실시간 차량 조정</title>
+<link rel="stylesheet" href="/tuning/dashboard.css"><link rel="stylesheet" href="/tv/tv.css"></head><body>
+<header><div><div class="brand">DJY MOTORSPORT · LIVE TUNING</div><h1>실시간 차량 조정</h1><small>요청값 · 적용값 · STM 응답을 함께 확인</small></div><div class="header-links"><a href="/pit">피트 대시보드 ↗</a><span id="link" class="badge">연결 확인 중</span></div></header>
+<div class="layout"><aside>
+<section class="panel stack"><h2>조정 항목</h2><a href="#differential">좌우 구동력 배분</a><a href="#pid">PID 게인</a><a href="#extensions">응답 · 출력 설정</a><small>현재 지원하는 항목만 차량으로 전송됩니다.</small></section>
+<section class="panel stack"><h2>강도와 상한</h2><p>강도는 TV 또는 전자식 차동이 계산한 <strong>좌우 출력 차이</strong>에 곱하는 비율입니다.</p><div class="explain"><span>100%</span><span>계산한 차이 그대로</span><span>50%</span><span>계산한 차이의 절반</span><span>0%</span><span>좌우 출력 명령 균등</span></div><p>기계식 LSD의 잠김 강도나 좌우 RPM 고정 기능이 아닙니다.</p><p>상한은 요청 강도의 최대 허용값입니다. <strong>모터 총출력·10kW 제한과는 별개</strong>입니다.</p></section>
+<section class="panel stack"><h2>적용과 복귀</h2><p>버튼을 누르는 동안 원격값을 유지합니다. 버튼 해제·화면 이탈·통신 만료 후에는 STM 로컬 기본 설정으로 복귀합니다.</p><p class="warning">현재 연결 보드에서 확인한 복귀값은 강도·상한 100%입니다. 마지막 값은 저장되지 않습니다.</p><small>0%는 차동 개입 해제이며 구동 전원 차단이 아닙니다. 공개 링크는 조회 전용입니다.</small></section>
+</aside><main>
+<div class="metrics readouts">
+<div class="metric"><span>수신 경로</span><b id="transport">—</b><small>현재 텔레메트리 경로</small></div>
+<div class="metric"><span>STM 적용 강도 / 상한</span><b id="actual">—</b><small>요청값과 별도의 보드 보고값</small></div>
+<div class="metric"><span>차동 개입 상태</span><b id="activity">—</b><small>TV 폐루프 / ED 개루프</small></div>
+</div>
+<section id="differential" class="panel section-panel"><div class="panel-title"><h2>좌우 구동력 배분</h2><span class="badge">실시간 조정</span></div>
+<div class="control-grid"><div>
+<label for="strength">배분 강도 <output id="strengthOut">0%</output></label><input id="strength" type="range" min="0" max="100" step="5" value="0"><small id="strengthHelp">좌우 출력 차이에 적용하는 비율</small>
+<label for="limit">강도 상한 <output id="limitOut">100%</output></label><input id="limit" type="range" min="0" max="100" step="5" value="100"><small id="limitHelp">요청 강도의 최대 허용값</small>
+<label class="check"><input id="enabled" type="checkbox" checked> 차동 개입 허용</label>
+</div><div class="target-panel"><small>최종 목표 강도</small><strong id="target">0%</strong><div id="formula">min(요청 0%, 상한 100%)</div><div class="strength-track"><div id="targetBar"></div><i id="capMarker"></i></div><small>변화율 제한에 따라 실제 적용값이 목표로 이동합니다.</small><button id="hold" class="primary" disabled>누르는 동안 적용</button><small id="permission">연결 상태를 확인하고 있습니다.</small></div></div>
+</section>
+<section class="panel section-panel"><div class="panel-title"><h2>명령 전달 · 보드 응답</h2><b id="commandBadge" class="badge">대기</b></div><div class="diagnostics"><div><small>요청 번호 / 응답 번호</small><b id="sequence">—</b></div><div><small>STM 수신 / 누적 오류</small><b id="counts">—</b></div><div><small>차량 오류 코드</small><b id="fault">—</b></div></div><p id="message" role="status" aria-live="polite">연결 상태를 기다리는 중입니다.</p><small>응답 확인은 명령 수신 확인입니다. 유지 종료 후 실제 적용값은 기본값으로 돌아갈 수 있습니다.</small></section>
+<section id="pid" class="panel section-panel"><div class="panel-title"><h2>PID 게인 · 현재 보드 설정</h2><span class="tag">현재 읽기 전용</span></div><p class="muted">차동 강도는 PID 계산 결과에 곱하는 비율입니다. Kp·Ki·Kd 변경과는 다릅니다.</p><div id="pidParameters" class="parameter-grid"><p>항목 정보를 불러오는 중입니다.</p></div><small>쓰기 명령·허용 범위·적용 응답을 STM까지 지원한 뒤 조정 기능을 활성화합니다.</small></section>
+<section id="extensions" class="panel section-panel"><div class="panel-title"><h2>응답 · 출력 설정</h2><span class="tag">확장 준비</span></div><div id="futureParameters" class="parameter-grid"></div><small>미지원 항목에는 임의 설정값을 넣거나 적용 버튼을 표시하지 않습니다.</small></section>
+</main></div><script src="/tv/app.js"></script></body></html>

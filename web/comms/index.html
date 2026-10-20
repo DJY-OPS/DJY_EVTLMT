@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0a0d12">
+<title>DJY · 드라이버 소통</title>
+<style>
+:root{color-scheme:dark;--bg:#0a0d12;--panel:#131920;--line:#2e3944;--muted:#a5b2bf;--text:#f3f6f8;--accent:#a8c9ff}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,"Segoe UI",sans-serif}main{max-width:1100px;margin:auto;padding:30px 22px 40px}header{display:flex;justify-content:space-between;align-items:center;gap:18px;margin-bottom:26px}.eyebrow{color:var(--accent);font:700 12px monospace;letter-spacing:.15em}h1{font-size:28px;margin:8px 0}p{color:var(--muted);font-size:14px;line-height:1.6;margin:8px 0}nav{display:flex;gap:16px;flex-wrap:wrap}a{color:var(--accent);font-size:14px;text-underline-offset:4px}h2{font-size:17px;margin:0 0 6px}section{margin-top:22px}.state{display:grid;grid-template-columns:1fr auto;align-items:center;gap:16px;border:1px solid var(--line);border-left:5px solid #62768b;border-radius:12px;padding:20px;background:var(--panel)}.state strong{display:block;font-size:30px;margin:10px 0;overflow-wrap:anywhere}.state small{color:var(--muted);line-height:1.6}.connection{font-size:13px;color:#ffdc6b}.connection.live{color:#69e7b3}.state[data-flag=YELLOW]{border-left-color:#ffdd45}.state[data-flag=RED],.state[data-flag=STOP]{border-left-color:#ff6279}.state[data-flag=BOX]{border-left-color:#ffac64}.state[data-flag=GREEN]{border-left-color:#69e7b3}.flags{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:16px}button{font-family:inherit;cursor:pointer;touch-action:manipulation;border:1px solid var(--line);border-radius:9px;background:#202934;color:var(--text);font-size:14px;font-weight:650;padding:14px;min-height:48px}button:focus-visible,input:focus-visible{outline:3px solid #fff;outline-offset:3px}button:disabled{opacity:.4;cursor:default}button:not(:disabled):active{transform:translateY(1px)}.flag{min-height:112px;text-align:left;padding:20px;border:2px solid transparent}.flag strong{display:block;font:900 clamp(23px,3.5vw,36px)/1.2 system-ui,sans-serif}.flag span{display:block;font-size:13px;margin-top:8px}.yellow{background:#ffdd45;color:#262000}.red{background:#ee4b62;color:#fff}.box{background:#f5a05a;color:#2c190a}.green{background:#143c30;color:#79efba;border-color:#295b49}.stop{background:#411e29;color:#ff8c9b;border-color:#723041}.checkered{background:#d6dee5;color:#16202b}.flag[aria-pressed=true]{outline:3px solid #fff;outline-offset:2px}.clear{min-width:140px;background:#283747;border-color:#57718a}.message-panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px}.presets{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0}.presets button{font-family:monospace}.compose{display:flex;gap:10px;margin-top:8px}label{font-size:13px;color:var(--muted)}input{min-width:0;flex:1;min-height:50px;padding:12px;background:var(--bg);color:var(--text);border:1px solid #4f6172;border-radius:8px;font:16px system-ui}#send{background:#a8c9ff;color:#11253e;min-width:100px}#feedback{min-height:24px;color:var(--accent);margin:12px 0 0}#feedback.error{color:#ff8999}.footer{margin-top:24px;font-size:12px;color:var(--muted);line-height:1.7}
+@media(max-width:600px){main{padding:20px 14px}header{align-items:flex-start;flex-direction:column;margin-bottom:20px}h1{font-size:25px}.state{padding:16px;grid-template-columns:1fr}.clear{width:100%}.flags{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.flag{padding:14px 10px;min-height:100px}.flag strong{font-size:22px}.flag span{font-size:11px}.message-panel{padding:16px}.compose{flex-wrap:wrap}input{flex-basis:100%}#send{width:100%}}
+</style>
+</head>
+<body><main>
+<header><div><div class="eyebrow">DJY MOTORSPORT · PIT → DRIVER</div><h1>드라이버 소통</h1><p>상황을 알리고, 드라이버를 피트로 호출하세요.</p></div><nav><a href="/driver" target="_blank" rel="noopener">드라이버 화면 ↗</a><a href="/pit">피트 대시보드</a></nav></header>
+<div class="state" id="state" data-flag="CLEAR"><div><div id="connection" class="connection" role="status">서버 연결 중…</div><small>현재 서버 발령</small><strong id="current">확인 중</strong><small id="detail">서버 상태를 확인하고 있습니다.</small></div><button class="clear" id="clear" disabled>알림 해제 · CLEAR</button></div>
+<section aria-labelledby="flagHeading"><h2 id="flagHeading">플래그 발령</h2><p>4초간 점멸한 뒤 자동으로 사라집니다. 다시 누르면 4초간 재표시되며, CLEAR로 즉시 해제할 수 있습니다.</p><div class="flags">
+<button class="flag yellow" data-flag="YELLOW" aria-pressed="false" disabled><strong>YELLOW</strong><span>위험 구간 · 주의</span></button>
+<button class="flag red" data-flag="RED" aria-pressed="false" disabled><strong>RED</strong><span>주행 중단</span></button>
+<button class="flag box" data-flag="BOX" aria-pressed="false" disabled><strong>BOX BOX</strong><span>이번 랩 피트 진입</span></button>
+<button class="flag green" data-flag="GREEN" aria-pressed="false" disabled><strong>GREEN</strong><span>트랙 클리어</span></button>
+<button class="flag stop" data-flag="STOP" aria-pressed="false" disabled><strong>STOP</strong><span>세션 정지</span></button>
+<button class="flag checkered" data-flag="CHECKERED" aria-pressed="false" disabled><strong>CHEQUERED</strong><span>세션 종료</span></button>
+</div></section>
+<section class="message-panel" aria-labelledby="messageHeading"><h2 id="messageHeading">짧은 메시지</h2><p id="messageHelp">4초간 점멸합니다. 플래그가 사라진 뒤 보내거나 CLEAR로 먼저 해제하세요.</p><div class="presets"><button data-message="TV GAIN +1" disabled>TV GAIN +1</button><button data-message="TV GAIN -1" disabled>TV GAIN -1</button><button data-message="REGEN +1" disabled>REGEN +1</button><button data-message="REGEN -1" disabled>REGEN -1</button></div>
+<form id="compose"><label for="custom">직접 입력 · 최대 48자</label><div class="compose"><input id="custom" maxlength="48" placeholder="예: NEXT LAP PUSH" autocomplete="off" aria-describedby="messageHelp"><button id="send" disabled>메시지 발령</button></div></form><p>TV GAIN·REGEN 버튼은 조정 내용을 알리는 메시지입니다. 실제 설정은 차량 조정 화면에서 변경하세요.</p></section>
+<p id="feedback" role="status" aria-live="polite"></p>
+<div class="footer">드라이버도 같은 서버의 /driver 화면을 열어두어야 합니다. 현재 상태는 서버 반영 기준이며, 운전자 확인 응답은 수집하지 않습니다.<br>서버 재시작 시 발령은 해제됩니다. <a href="/test">차량 표시 테스트</a></div>
+</main><script>
+const $=id=>document.getElementById(id),labels={CLEAR:'발령 없음',GREEN:'GREEN',YELLOW:'YELLOW',RED:'RED',STOP:'STOP',CHECKERED:'CHEQUERED',BOX:'BOX BOX'};
+let state=null,connected=false,busy=false,refreshing=false,sendCount=0;
+function controls(){
+  document.querySelectorAll('[data-flag],#clear').forEach(b=>b.disabled=!connected||busy);
+  document.querySelectorAll('[data-message],#send').forEach(b=>b.disabled=!connected||busy||state?.flag!=='CLEAR');
+}
+function render(data){
+  state=data;connected=true;$('connection').textContent='● 서버 연결됨';$('connection').className='connection live';
+  $('state').dataset.flag=data.flag;$('current').textContent=data.flag!=='CLEAR'?labels[data.flag]:data.message||labels.CLEAR;
+  const time=data.updated_at?new Date(data.updated_at*1000).toLocaleTimeString('ko-KR',{hour12:false}):'';
+  $('detail').textContent=(data.flag!=='CLEAR'?'플래그 표시 중 · 최대 4초':data.message?'메시지 표시 중 · 최대 4초':'드라이버 기본 화면')+(time?' · 마지막 발령 '+time:'');
+  document.querySelectorAll('[data-flag]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.flag===data.flag)));
+  controls();
+}
+async function request(options={}){
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),3000);
+  try{const r=await fetch('/api/driver-message',{cache:'no-store',...options,signal:controller.signal});
+    if(!r.ok){const text=await r.text();let error;try{error=JSON.parse(text).error;}catch(_){}throw new Error(error||`서버 오류 (${r.status})`);}
+    return await r.json();
+  }finally{clearTimeout(timer);}
+}
+async function refresh(){
+  if(refreshing||busy)return;refreshing=true;const before=sendCount;
+  try{const data=await request();if(!busy&&before===sendCount)render(data);}catch(_){if(!busy&&before===sendCount){connected=false;$('connection').textContent='● 서버 연결 확인 필요';$('connection').className='connection';$('detail').textContent='마지막 확인 상태 · 현재 발령을 확인할 수 없습니다.';controls();}}
+  finally{refreshing=false;}
+}
+async function send(action,value){
+  if(busy||!connected)return;busy=true;sendCount++;controls();$('feedback').className='';$('feedback').textContent='서버에 발령 중…';
+  try{render(await request({method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,value})}));$('feedback').textContent='서버 반영 완료 · '+(action==='clear_alert'?'알림 해제':labels[value]||value);}
+  catch(e){$('feedback').className='error';$('feedback').textContent='발령 결과 확인 필요 · '+(e.name==='AbortError'?'응답 시간 초과':e.message);}
+  finally{busy=false;controls();refresh();}
+}
+document.querySelectorAll('[data-flag]').forEach(b=>b.onclick=()=>send('set_flag',b.dataset.flag));
+document.querySelectorAll('[data-message]').forEach(b=>b.onclick=()=>send('set_adjustment',b.dataset.message));
+$('clear').onclick=()=>send('clear_alert');
+$('compose').onsubmit=e=>{e.preventDefault();if(state?.flag!=='CLEAR')return;const value=$('custom').value.trim();if(value)send('set_adjustment',value);else{$('feedback').className='error';$('feedback').textContent='메시지를 입력하세요.';$('custom').focus();}};
+setInterval(refresh,500);refresh();
+</script></body></html>

@@ -3,12 +3,13 @@
 <title>DJY EV · BMS 텔레메트리</title><link rel="stylesheet" href="/tuning/dashboard.css">
 <style>
 .pack-power{font-size:38px!important;color:#00ff00!important}.metric .secondary{font-size:18px}.battery-status{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.status-row{display:flex;justify-content:space-between;gap:15px;padding:8px 0;border-bottom:1px solid #555}.status-row b{text-align:right;overflow-wrap:anywhere}.comparison{border-left:3px solid #ffff00;padding-left:12px}.cells .cell b{display:block;color:#00ffff}.cells .cell.low{border-color:#ffff00}.cells .cell.high{border-color:#ff3333}.change-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.change-grid b{display:block;color:#00ffff;font-size:20px}.chart-note{color:#ddd;margin:12px 0}.nav{display:flex;gap:16px;flex-wrap:wrap}@media(max-width:550px){.battery-status{grid-template-columns:1fr}.pack-power{font-size:28px!important}.change-grid{grid-template-columns:1fr}.status-row{font-size:14px}}
+.prediction-form{display:flex;flex-wrap:wrap;gap:12px;align-items:end;margin:14px 0}.prediction-form label{display:grid;gap:5px;min-width:0}.prediction-form input,.prediction-form select{max-width:100%;box-sizing:border-box}.prediction-metrics b{font-size:28px;overflow-wrap:anywhere}.prediction-note{line-height:1.6;overflow-wrap:anywhere}.prediction-good{color:#00ff00!important}.prediction-poor{color:#ffb347!important}
 </style></head><body>
-<header><div><div class="brand">DJY MOTORSPORT · LIVE TELEMETRY</div><h1>BMS 배터리 · 출력 분석</h1><small>배터리 소비와 차량 제어를 같은 시간축에서 비교</small><div class="nav"><a href="/pit">← 피트 대시보드</a><a href="/driver">운전자 화면 ↗</a></div></div><div><div id="link">게이트웨이 연결 확인 중</div><div id="recordClock" style="font-size:28px;color:#00ffff;font-variant-numeric:tabular-nums">00:00:00</div><small id="recordStart">저장 시작 대기</small><div id="recordStatus" class="muted">기록 상태 확인 중</div></div></header>
+<header><div><div class="brand">DJY MOTORSPORT · LIVE TELEMETRY</div><h1>BMS 배터리 상태</h1><small>팩 전압·전류·전력, 셀 상태와 온도를 함께 확인</small><div class="nav"><a href="/pit">← 피트 대시보드</a><a href="/driver">운전자 화면 ↗</a></div></div><div><div id="link">게이트웨이 연결 확인 중</div><div id="recordClock" style="font-size:28px;color:#00ffff;font-variant-numeric:tabular-nums">00:00:00</div><small id="recordStart">저장 시작 대기</small><div id="recordStatus" class="muted">기록 상태 확인 중</div></div></header>
 <p id="signalStatus" role="status" style="margin:0 20px 12px;color:#ffff00"></p>
 <div class="layout"><aside>
-<section class="panel channel-panel"><h2>용도별 신호</h2><small>그래프를 숨겨도 측정 기록은 유지됩니다.</small><div id="channels"></div></section>
-<section class="panel stack"><h2>측정 기록</h2><input id="label" type="text" maxlength="80" placeholder="예: 주행 04 · 코너 탈출" aria-label="측정 이름"><button id="record" class="primary" disabled>측정 시작</button><small>인터넷에서도 시작·종료합니다. 피트 화면과 같은 세션에 저장됩니다.</small><button id="export">최근 버퍼 CSV 저장</button></section>
+
+<section class="panel stack"><h2>측정 기록</h2><input id="label" type="text" maxlength="80" placeholder="예: 배터리 방전 시험 04" aria-label="측정 이름"><button id="record" class="primary" disabled>측정 시작</button><small>인터넷에서도 시작·종료합니다. 피트 화면과 같은 세션에 저장됩니다.</small><button id="export">최근 버퍼 CSV 저장</button></section>
 <section class="panel stack"><h2>팀 공유</h2><button id="share">BMS 화면 주소 복사</button><small>인터넷에서도 기록을 시작·종료할 수 있습니다.</small><a id="rawLink" href="/records" target="_blank" rel="noopener">저장 데이터 열람 ↗</a></section>
 </aside><main>
 <section class="panel" style="margin-bottom:14px"><div class="panel-title"><h2>배터리 전체 소비전력</h2><b id="bmsContext" class="badge">현재 수신값</b></div>
@@ -17,15 +18,38 @@
 <div class="metric"><span>팩 전압</span><b id="packVoltage">미수신</b><small>V</small></div>
 <div class="metric"><span>팩 전류</span><b id="packCurrent">미수신</b><small>A · BMS가 보낸 부호 유지</small></div>
 <div class="metric"><span>배터리 잔량</span><b id="packSoc">미수신</b><small>%</small></div>
-<div class="metric"><span>좌우 출력 요구 합계</span><b id="commandTotal">미수신</b><small id="commandSides">좌 / 우 요구값 · 실측 아님</small></div>
-<div class="metric"><span>현재 차속</span><b id="batterySpeed">미수신</b><small>좌우 평균 모터 RPM · 지름 45cm · 감속비 4:1</small></div>
-</div><div class="comparison">좌우 모터별 실제 소비전력: 현재 미제공. 아래 전력 그래프의 좌우 값은 STM 출력 요구값입니다.</div></section>
-<section class="panel" style="margin-bottom:14px"><div class="panel-title"><h2>표시 구간 시작 대비 변화</h2><small id="changeContext">구간 내 유효값 대기</small></div><div class="change-grid"><div>전압 변화<b id="voltageChange">—</b></div><div>전류 변화<b id="currentChange">—</b></div><div>팩 전력 변화<b id="powerChange">—</b></div><small>선택 시점에서 표시 구간 첫 유효값을 뺀 값입니다. 초당 변화율이나 TV의 ΔP와는 다릅니다.</small></section>
+<div class="metric"><span>최저 / 최고 온도</span><b id="packTemperature">미수신</b><small>°C · BMS 측정값</small></div>
+<div class="metric"><span>셀 전압 편차</span><b id="packImbalance">미수신</b><small>최고 셀 − 최저 셀 · mV</small></div>
+</div></section>
+<section class="panel" style="margin-bottom:14px" aria-labelledby="predictionTitle">
+<div class="panel-title"><h2 id="predictionTitle">실시간 남은 주행시간 · 전비</h2><span class="badge">현재 주행 · 1초마다 갱신</span></div>
+<p id="predictionReason" class="prediction-note" role="status">BMS 데이터 수신 대기</p>
+<div class="metrics prediction-metrics">
+<div class="metric"><span>지금처럼 주행하면</span><b id="runtimeMinutes">—</b><small id="runtimeReserve">예비 SOC 10%까지 · 최근 30초 소비 기준</small></div>
+<div class="metric"><span>부하 변화에 따른 시간 범위</span><b id="runtimeRange">—</b><small>최근 10·30·120초 소비 비교 · 확률 신뢰구간 아님</small></div>
+<div class="metric"><span>현재 전비 · 낮을수록 효율적</span><b id="efficiencyWhKm">—</b><small>최근 30초 · 회생 포함 순소비 Wh/km</small></div>
+<div class="metric"><span>최근 주행 대비</span><b id="efficiencyVerdict">비교 대기</b><small id="efficiencyComparison">직전 구간의 비슷한 속도 주행과 비교</small></div>
+<div class="metric"><span>최근 평균 순방전</span><b id="predictionCurrent">—</b><small>최근 30초 · 정차·회생 포함</small></div>
+<div class="metric"><span>예비량 제외 사용 가능 용량</span><b id="predictionAvailable">—</b><small id="predictionCapacity">BMS 잔여 Ah 기준</small></div>
+</div>
+<p id="predictionQuality" class="muted">유효한 소비 구간이 10초 이상 필요합니다.</p>
+<p class="prediction-note">주행시간은 최근 소비가 유지된다는 가정의 에너지 추정입니다. 전비 평가는 속도·경사·회생·정차의 영향을 받으며 운전 습관만의 점수가 아닙니다. 과거 그래프를 선택하거나 일시정지해도 이 패널은 현재 주행을 표시합니다.</p>
+<details><summary>예측 설정</summary>
+<form id="predictionSettings" class="prediction-form">
+<label>예비 SOC (%)<input name="reserve_soc_pct" type="number" min="0" max="90" step="1" value="10" required disabled></label>
+<label>BMS 설정용량 (Ah)<input name="configured_capacity_ah" type="number" min="0.1" max="10000" step="any" value="80" required disabled></label>
+<label>방전 전류 부호<select name="discharge_sign" disabled><option value="-1">음수 (EVDATA)</option><option value="1">양수</option></select></label>
+<button type="submit" disabled>설정 저장</button></form>
+<p class="prediction-note">초기 80Ah와 음수 방전은 EVDATA의 2026-09-20 BMS 로그에서 확인한 설정용량 관계와 전류 방향을 사용합니다. 80Ah는 배터리 건강도 실측값이 아닙니다. 예비 SOC 10%는 변경 가능한 계획값이며 BMS 차단 설정을 바꾸지 않습니다.</p>
+<p id="predictionEditStatus" role="status">피트 PC 로컬 접속에서 변경할 수 있습니다.</p>
+</details></section>
+<section class="panel" style="margin-bottom:14px"><div class="panel-title"><h2>표시 구간 시작 대비 변화</h2><small id="changeContext">구간 내 유효값 대기</small></div><div class="change-grid"><div>전압 변화<b id="voltageChange">—</b></div><div>전류 변화<b id="currentChange">—</b></div><div>팩 전력 변화<b id="powerChange">—</b></div><small>선택 시점에서 표시 구간 첫 유효값을 뺀 값입니다. 순간 변화율이 아닌 구간 내 변화량입니다.</small></section>
 <section class="panel" style="margin-bottom:14px"><div class="toolbar"><button id="live" class="primary">실시간 보기</button><select id="session" aria-label="과거 측정 세션"><option value="">과거 측정 선택</option></select><button id="reload">세션 새로고침</button></div>
 <div class="toolbar"><button id="pause">화면 일시정지</button><label>구간 <select id="window"><option value="10">10초</option><option value="30" selected>30초</option><option value="60">1분</option><option value="300">5분</option><option value="all">전체 페이지</option></select></label><button id="prev" disabled>이전 페이지</button><button id="next" disabled>다음 페이지</button><span id="mode" class="muted">실시간 · 수신 대기</span></div>
 <div class="toolbar"><span>과거</span><input type="range" id="scrub" min="0" max="1000" value="1000" aria-label="시간 탐색"><span>최근</span></div><div id="cursor"><strong id="cursorTime">수신 대기</strong><small id="cursorHint">마우스: 값 확인 · 좌클릭: 표시값 고정</small></div><div id="notice"></div><div id="error" role="alert"></div></section>
-<h2 class="section-heading">전력 · 배터리 · 토크벡터링</h2><div id="delivery" class="panel" role="status">수집·전송 상태 확인 중</div><div id="plots"></div>
+<h2 class="section-heading">배터리 실시간 그래프</h2><div id="delivery" class="panel" role="status">수집·전송 상태 확인 중</div><section class="panel channel-panel"><h2>용도별 신호</h2><small>그래프를 숨겨도 측정 기록은 유지됩니다.</small><div id="channels"></div></section>
+<div id="plots"></div>
 <p class="chart-note">ESP CAN 모드는 전압·전류를 10 ms마다 요청합니다. 실제 응답 간격은 수집·전송 상태에서 확인하세요. 같은 값이 반복돼도 새로운 BMS 측정이라고 볼 수 없습니다. 시간축은 게이트웨이의 표본 시각이며 센서 간 동시 측정을 보장하지 않습니다.</p>
 <p id="bmsStateContext" class="muted">셀·MOS·알람: 현재 수신 상태</p><div class="battery-status"><section class="panel"><div class="panel-title"><h2>셀 전압</h2><small id="cellCount">미수신</small></div><p id="cellSummary" class="muted">셀 데이터 대기</p><div id="cells" class="cells"></div></section>
 <section class="panel"><div class="panel-title"><h2>BMS 상태 · 알람</h2><b id="bmsState">미수신</b></div><div class="status-row"><span>충전 / 방전 MOS</span><b id="mos">—</b></div><div class="status-row"><span>충전기 / 부하</span><b id="load">—</b></div><div class="status-row"><span>온도 최저 / 최고</span><b id="temps">—</b></div><div class="status-row"><span>밸런싱 / 잔여 용량</span><b id="extra">—</b></div><div class="status-row"><span>충방전 사이클</span><b id="cycles">—</b></div><div class="status-row"><span>알람</span><b id="alarm">미수신</b></div><p id="bmsAge" class="muted">CAN 수신 대기</p><small id="bmsSource">BMS 수신 대기</small></section></div>
-</main></div><script src="/tuning/battery.js"></script><script src="/records/clock.js"></script><script src="/tuning/app.js"></script></body></html>
+</main></div><script src="/tuning/battery.js"></script><script src="/records/clock.js"></script><script src="/tuning/app.js"></script><script src="/battery/prediction.js"></script></body></html>

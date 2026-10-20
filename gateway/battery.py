@@ -1,6 +1,7 @@
 """Measured BMS channels and clearly labelled TV commands for battery analysis."""
 import math
 from tuning import project as tuning_project
+from vehicle_geometry import recorded_geometry
 
 # key, label, unit, group, validity flags (same channel contract as /tuning).
 CHANNELS = (
@@ -87,7 +88,7 @@ def status(packet):
     """Allowlisted metadata, with unavailable states represented as null."""
     online = bool(packet.get('bms_online'))
     source = packet.get('_battery_status', packet)
-    result = {'bms_online': online}
+    result = {'bms_online': online, 'speed_geometry': recorded_geometry(packet)}
     for key in ('bms_fault', 'bms_charge_mos_on', 'bms_discharge_mos_on',
                 'bms_balancing', 'bms_charger_present', 'bms_load_present'):
         result[key] = bool(source[key]) if online and isinstance(source.get(key), (bool, int)) else None

@@ -30,13 +30,12 @@
   </style>
 </head>
 <body>
-  <header><div><h1>DJY EV 차량 화면 테스트</h1><small>RPM · 배터리 · 랩타임 · 플래그/조정 메시지</small></div><a href="/driver" target="_blank">차량 화면 열기 ↗</a></header>
+  <header><div><h1>DJY EV 차량 화면 테스트</h1><small>RPM · 배터리 · 랩타임 · 센서 상태</small></div><a href="/driver" target="_blank">차량 화면 열기 ↗</a></header>
   <div class="warning">이 페이지는 표시 시험만 수행합니다. STM·인버터·TV 제어값으로 전송하지 않습니다.</div>
   <main class="grid">
-    <section><h2>플래그 발령</h2><div class="buttons"><button class="green" data-flag="GREEN">GREEN</button><button class="yellow" data-flag="YELLOW">YELLOW</button><button class="red" data-flag="RED">RED</button><button class="red" data-flag="STOP">STOP</button><button class="checkered" data-flag="CHECKERED">CHEQUERED</button><button class="orange" data-flag="BOX">BOX</button><button data-action="clear_alert">CLEAR</button></div></section>
+    <section><h2>드라이버 소통</h2><a href="/comms" style="color:var(--cyan)">플래그 · BOX BOX · 메시지 발령 화면 열기 ↗</a><p>플래그와 조정 알림은 드라이버 소통 화면으로 이동했습니다.</p></section>
     <section><h2>랩타임</h2><div class="buttons"><button class="green" data-action="lap_start">LAP START</button><button class="yellow" data-action="lap_finish">LAP FINISH</button><button data-action="lap_reset">RESET</button></div></section>
     <section><h2>표시값</h2><label><span>RPM</span><input id="rpm" type="range" min="0" max="12000" step="100" value="4000"><output id="rpmOut">4000</output></label><div class="buttons"><button id="setRpm">RPM 적용</button><button data-rpm="0">0</button><button data-rpm="6000">6000</button><button data-rpm="10000">10000</button></div><label><span>TPS→RPM</span><input id="autoRpmMax" type="range" min="1000" max="20000" step="500" value="12000"><output id="autoRpmMaxOut">12000</output></label><div class="buttons"><button class="green" id="startAutoRpm">TPS 연동 시작</button><button class="red" id="stopAutoRpm">TPS 연동 종료</button></div><label><span>배터리</span><input id="battery" type="range" min="0" max="100" step="1" value="75"><output id="batteryOut">75%</output></label><div class="buttons"><button id="setBattery">SOC 적용</button><button data-battery="100">100%</button><button data-battery="25">25%</button><button data-battery="10">10%</button></div></section>
-    <section><h2>조정 값 알림 · 4초간 점멸</h2><div class="buttons"><button class="orange" data-adjust="TV GAIN +1">TV GAIN +1</button><button class="orange" data-adjust="TV GAIN -1">TV GAIN -1</button><button class="orange" data-adjust="REGEN +1">REGEN +1</button><button class="orange" data-adjust="REGEN -1">REGEN -1</button></div><div class="message-row" style="margin-top:10px"><input id="custom" type="text" maxlength="48" placeholder="예: POWER MAP 2"><button id="sendCustom">보내기</button></div></section>
     <section><h2>드라이빙 모드 · TQV 강도</h2><div class="buttons"><button data-mode="QUALIFYING">QUALIFYING</button><button data-mode="RACE">RACE</button><button class="green" data-mode="CHRG">CHRG</button><button class="orange" data-mode="ATTACK">ATTACK</button></div><label><span>TQV 강도</span><input id="tqv" type="range" min="0" max="100" step="1" value="40"><output id="tqvOut">40%</output></label><div class="buttons"><button id="setTqv">TQV 적용</button><button data-tqv="0">0%</button><button data-tqv="25">25%</button><button data-tqv="50">50%</button><button data-tqv="100">100%</button></div></section>
     <section><h2>센서 상태</h2><div class="buttons"><button class="green" id="allSensors">ALL OK</button><button class="red" data-sensor="can_ok">CAN FAIL</button><button class="red" data-sensor="bms_ok">BMS FAIL</button><button class="red" data-sensor="imu_ok">IMU FAIL</button><button class="red" data-sensor="motor_left_ok">MOTOR L FAIL</button><button class="red" data-sensor="motor_right_ok">MOTOR R FAIL</button></div></section>
     <section class="wide"><h2>상태</h2><div class="buttons"><button data-action="clear_overrides">모든 테스트 해제</button><button id="refresh">새로고침</button></div><pre id="status">대기 중...</pre></section>
@@ -51,17 +50,15 @@
     $('rpm').oninput=()=>$('rpmOut').textContent=$('rpm').value; $('autoRpmMax').oninput=()=>$('autoRpmMaxOut').textContent=$('autoRpmMax').value; $('battery').oninput=()=>$('batteryOut').textContent=`${$('battery').value}%`; $('tqv').oninput=()=>$('tqvOut').textContent=`${$('tqv').value}%`;
     $('setRpm').onclick=()=>send('set_rpm',Number($('rpm').value)); $('setBattery').onclick=()=>send('set_battery',Number($('battery').value));
     $('startAutoRpm').onclick=()=>send('set_rpm_follow_throttle',true,{max_rpm:Number($('autoRpmMax').value)}); $('stopAutoRpm').onclick=()=>send('set_rpm_follow_throttle',false,{max_rpm:Number($('autoRpmMax').value)});
-    document.querySelectorAll('[data-flag]').forEach(b=>b.onclick=()=>send('set_flag',b.dataset.flag));
     document.querySelectorAll('[data-action]').forEach(b=>b.onclick=()=>send(b.dataset.action));
     document.querySelectorAll('[data-rpm]').forEach(b=>b.onclick=()=>send('set_rpm',Number(b.dataset.rpm)));
     document.querySelectorAll('[data-battery]').forEach(b=>b.onclick=()=>send('set_battery',Number(b.dataset.battery)));
-    document.querySelectorAll('[data-adjust]').forEach(b=>b.onclick=()=>send('set_adjustment',b.dataset.adjust));
     document.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>send('set_mode',b.dataset.mode));
     document.querySelectorAll('[data-tqv]').forEach(b=>b.onclick=()=>send('set_tqv',Number(b.dataset.tqv)));
     document.querySelectorAll('[data-sensor]').forEach(b=>b.onclick=()=>send('set_sensor',false,{sensor:b.dataset.sensor}));
     $('setTqv').onclick=()=>send('set_tqv',Number($('tqv').value));
     $('allSensors').onclick=async()=>{for(const sensor of ['stm_online','can_ok','sas_ok','imu_ok','bms_ok','motor_left_ok','motor_right_ok'])await send('set_sensor',true,{sensor});};
-    $('sendCustom').onclick=()=>send('set_adjustment',$('custom').value); $('refresh').onclick=refresh;
+    $('refresh').onclick=refresh;
     setInterval(refresh,500); refresh();
   </script>
 </body>

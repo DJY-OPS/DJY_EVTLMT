@@ -3,6 +3,7 @@ import math
 import threading
 import time
 from collections import deque
+from vehicle_geometry import recorded_geometry
 
 # key, label, unit, plot group, required validity flags
 CHANNELS = (
@@ -23,7 +24,7 @@ CHANNELS = (
     ("yaw_error_rad_s", "yaw_error · STM 제어 오차", "rad/s", "yaw", ("tqv_internal_online",)),
     ("delta_power_kw", "delta_power · 최종 차동전력", "kW", "power", ("tqv_internal_online",)),
     ("vehicle_speed_m_s", "vehicle_speed · STM 계산값", "m/s", "speed_raw", ("tqv_internal_online",)),
-    ("speed_kmh", "차속 · RPM 품질 통과 / 지름 45cm / 4:1", "km/h", "speed", ("speed_online",)),
+    ("speed_kmh", "차속 · RPM 품질 통과 / 표본별 환산 설정", "km/h", "speed", ("speed_online",)),
     ("traction_scale", "traction_scale · 개입 배율", "0..1", "traction", ("tqv_internal_online",)),
     ("tv_active", "tv_active · 폐루프 개입", "0/1", "activity", ("tqv_internal_online",)),
     ("ed_active", "ed_active · 개루프 개입", "0/1", "activity", ("tqv_internal_online",)),
@@ -33,6 +34,7 @@ CHANNELS = (
     ("battery_pack_voltage_v", "배터리 팩 전압", "V", "battery_voltage", ("bms_online",)),
     ("battery_current_a", "배터리 전류 · 방전 음수", "A", "battery_current", ("bms_online",)),
     ("battery_power_kw", "배터리 실측 전력 · 방전 음수", "kW", "battery_power", ("bms_online",)),
+    ("battery_soc_pct", "배터리 잔량", "%", "battery_summary", ("bms_online",)),
     ("lateral_accel_m_s2", "횡가속도", "m/s²", "acceleration", ("imu_online", "imu_ok")),
     ("longitudinal_accel_m_s2", "종가속도", "m/s²", "acceleration", ("imu_online", "imu_ok")),
 )
@@ -93,7 +95,7 @@ def project(packet, channels=CHANNELS):
 def rpm_status(packet):
     """Allowlisted diagnostics shared by live, history and CSV."""
     values = project(packet)
-    result = {}
+    result = {'speed_geometry': recorded_geometry(packet)}
     for side in ('left', 'right'):
         received = values[f'rpm_{side}_reported'] is not None
         quality = packet.get(f'rpm_{side}_quality')

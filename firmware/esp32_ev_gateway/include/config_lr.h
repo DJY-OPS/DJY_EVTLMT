@@ -1,0 +1,19 @@
+#pragma once
+#include "../../esp32_lr_common/include/lr_settings.h"
+#define EV_WIFI_SSID DJY_LR_SSID
+#define EV_WIFI_PASSWORD DJY_LR_PASSWORD
+#define EV_PIT_HOST DJY_LR_AP_IP
+#define EV_TELEMETRY_PORT DJY_LR_DATA_PORT
+#define EV_COMMAND_PORT DJY_LR_COMMAND_PORT
+#define EV_LOCAL_UDP_ENABLED 1
+#define EV_RECEIVE_ONLY 1
+#define EV_RELAY_ENABLED 0
+#define EV_RELAY_ACCEPT_COMMANDS 0
+#define EV_VEHICLE_ID "EV"
+#define EV_STATUS_LED_ENABLED 1
+#define EV_STATUS_LED_GPIO 38
+#define EV_CAN_TX_GPIO 17
+#define EV_CAN_RX_GPIO 18
+#define EV_BMS_CAN_TX_GPIO 9
+#define EV_BMS_CAN_RX_GPIO 8
+#define EV_PIT_ENABLE_GPIO 4

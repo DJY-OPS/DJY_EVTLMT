@@ -26,12 +26,15 @@ from daly_bms import DalyBmsReader
 from stm_serial import rear_records
 from usb_serial import USB_BAUD, usb_lines, decode_usb_line
 from tuning import CHANNELS, INPUTS as TUNING_INPUTS, TuningStream, project as tuning_project, rpm_status
+from onboard import project_onboard
 from battery import CHANNELS as BATTERY_CHANNELS, INPUTS as BATTERY_INPUTS, STATUS_KEYS as BATTERY_STATUS_KEYS, with_power, project as battery_project, status as battery_status
-from vehicle_geometry import GEAR_RATIO, TIRE_RADIUS_M, with_verified_speed
+from battery_prediction import BatteryPrediction
+from vehicle_geometry import DEFAULT_GEOMETRY, speed_kmh, validate_geometry, with_verified_speed
 from gnss import GNSSArchive, GNSSManager
 from relay_samples import RelaySamples, MAX_BATCH_BYTES
 from recording_view import serve_recording_get, public_recording_status
 from native_gnss import NativeGNSS, serve_native_gnss
+from control_catalog import catalog as tuning_catalog, to_live_command
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -141,7 +144,7 @@ def parse_front_status(line: bytes | str) -> dict[str, Any] | None:
     }
 
 
-def normalize_packet(data: Mapping[str, Any]) -> dict[str, Any]:
+def normalize_packet(data: Mapping[str, Any], geometry=None) -> dict[str, Any]:
     data = with_power(data)
     rpm_left = max(0, int(_number(data, "rpm_left", "rpm_l")))
     rpm_right = max(0, int(_number(data, "rpm_right", "rpm_r")))
@@ -151,9 +154,7 @@ def normalize_packet(data: Mapping[str, Any]) -> dict[str, Any]:
         if (rpm_left == 0) != (rpm_right == 0):
             speed = 0.0
         else:
-            motor_rpm = 0.5 * (rpm_left + rpm_right)
-            wheel_rpm = motor_rpm / GEAR_RATIO
-            speed = wheel_rpm * (2.0 * math.pi * TIRE_RADIUS_M) / 60.0 * 3.6
+            speed = speed_kmh(rpm_left, rpm_right, geometry)
 
     power_left = _number(data, "power_left_kw")
     power_right = _number(data, "power_right_kw")
@@ -356,6 +357,53 @@ def normalize_packet(data: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
+class DriverMessages:
+    """Pit-to-driver display messages; never sent to the vehicle control queue."""
+
+    def __init__(self) -> None:
+        self.lock = threading.Lock()
+        self.flag = "CLEAR"
+        self.message = ""
+        self.until = 0.0
+        self.version = 0
+        self.updated_at = None
+
+    def snapshot(self) -> dict[str, Any]:
+        with self.lock:
+            return self._snapshot()
+
+    def _snapshot(self) -> dict[str, Any]:
+        remaining = max(0.0, self.until - time.monotonic())
+        if not remaining:
+            self.flag, self.message = "CLEAR", ""
+        return {"flag": self.flag, "message": self.message if remaining else "",
+                "remaining_ms": round(remaining * 1000), "version": self.version,
+                "updated_at": self.updated_at}
+
+    def apply(self, payload: Mapping[str, Any]) -> dict[str, Any]:
+        action, value = payload.get("action"), payload.get("value")
+        with self.lock:
+            self._snapshot()
+            if action == "set_flag":
+                if not isinstance(value, str) or value not in VALID_FLAGS:
+                    raise ValueError("유효한 플래그를 선택하세요.")
+                self.flag, self.message = value, ""
+                self.until = time.monotonic() + 4.0 if value != "CLEAR" else 0.0
+            elif action == "set_adjustment":
+                if not isinstance(value, str) or not 1 <= len(value.strip()) <= 48:
+                    raise ValueError("메시지는 1~48자로 입력하세요.")
+                if self.flag != "CLEAR":
+                    raise ValueError("현재 플래그를 해제한 뒤 메시지를 보내세요.")
+                self.message, self.until = value.strip(), time.monotonic() + 4.0
+            elif action == "clear_alert":
+                self.flag, self.message, self.until = "CLEAR", "", 0.0
+            else:
+                raise ValueError("지원하지 않는 드라이버 메시지입니다.")
+            self.version += 1
+            self.updated_at = time.time()
+            return self._snapshot()
+
+
 class DisplayTestState:
     """Development-only display overrides; never writes commands to the vehicle."""
 
@@ -539,7 +587,7 @@ class TelemetryStore:
         "pid": (("pid_kp", "pid_ki", "pid_kd", "pid_online"), ("pid_kp", "pid_ki", "pid_kd")),
         "motor_left_voltage": (("motor_left_voltage_v",), ("motor_left_voltage_v",)),
         "motor_right_voltage": (("motor_right_voltage_v",), ("motor_right_voltage_v",)),
-        "speed": (("speed_kmh", "speed"), ("speed_kmh",)),
+        "speed": (("speed_kmh", "speed"), ("speed_kmh", "speed_geometry", "speed_reported_kmh")),
         "rpm_left": (
             ("rpm_left", "rpm_l", "cap_left", "capture_left", "motor_left_ok"),
             ("rpm_left", "cap_left", "motor_left_ok"),
@@ -593,6 +641,7 @@ class TelemetryStore:
 
     def __init__(self) -> None:
         self._lock = threading.Lock()
+        self._geometry = dict(DEFAULT_GEOMETRY)
         self._packet: dict[str, Any] = normalize_packet({})
         self._last_monotonic: float | None = None
         self._vehicle_last_monotonic: float | None = None
@@ -605,11 +654,19 @@ class TelemetryStore:
         self._tuning_seen: dict[str, tuple[float, float | None]] = {}
         self._battery_metadata: dict[str, tuple[float, Any]] = {}
 
-    def update(self, data: Mapping[str, Any], now: float | None = None) -> dict[str, Any]:
-        data = with_power(with_verified_speed(data))
-        timestamp = time.monotonic() if now is None else now
-        normalized = normalize_packet(data)
+    def geometry(self) -> dict[str, Any]:
         with self._lock:
+            return dict(self._geometry)
+
+    def set_geometry(self, geometry) -> None:
+        with self._lock:
+            self._geometry = dict(geometry)
+
+    def update(self, data: Mapping[str, Any], now: float | None = None) -> dict[str, Any]:
+        timestamp = time.monotonic() if now is None else now
+        with self._lock:
+            data = with_power(with_verified_speed(data, self._geometry))
+            normalized = normalize_packet(data, self._geometry)
             # Keep the complete received object for the session recorder while
             # canonical normalized names remain authoritative for the UI.
             packet = dict(data)
@@ -716,6 +773,10 @@ class TelemetryDatabase:
         self._connection.execute("PRAGMA synchronous=NORMAL")
         self._connection.execute("PRAGMA foreign_keys=ON")
         self._connection.executescript("""
+            CREATE TABLE IF NOT EXISTS vehicle_settings (
+                id INTEGER PRIMARY KEY CHECK(id=1),
+                payload_json TEXT NOT NULL
+            );
             CREATE TABLE IF NOT EXISTS measurement_sessions (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 started_at_utc TEXT NOT NULL,
@@ -803,6 +864,21 @@ class TelemetryDatabase:
         value = time.time() if epoch is None else epoch
         seconds, milliseconds = divmod(round(value * 1000), 1000)
         return time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(seconds)) + f".{milliseconds:03d}Z"
+
+    def geometry(self, value=None) -> dict[str, Any]:
+        with self._lock:
+            if value is not None:
+                value = validate_geometry(value)
+                try:
+                    self._connection.execute(
+                        'INSERT OR REPLACE INTO vehicle_settings(id,payload_json) VALUES(1,?)',
+                        (json.dumps(value),))
+                    self._connection.commit()
+                except sqlite3.Error:
+                    self._connection.rollback()
+                    raise
+            row = self._connection.execute('SELECT payload_json FROM vehicle_settings WHERE id=1').fetchone()
+            return validate_geometry(json.loads(row[0])) if row else dict(DEFAULT_GEOMETRY)
 
     def start(self, label: str = "") -> dict[str, Any]:
         with self._lock:
@@ -1043,6 +1119,7 @@ class EVGateway:
         self.tuning = TuningStream()
         self.battery = TuningStream(projector=battery_project, status_projector=battery_status)
         self.display_test = DisplayTestState()
+        self.driver_messages = DriverMessages()
         self.stop_event = threading.Event()
         self.forward_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.forward_lock = threading.Lock()
@@ -1050,6 +1127,9 @@ class EVGateway:
         self.command_port = command_port
         self.relay_token = relay_token.strip()
         self.database = TelemetryDatabase(database_path) if database_path is not None else None
+        self.battery_prediction = BatteryPrediction(self.database)
+        if self.database:
+            self.store.set_geometry(self.database.geometry())
         self.gnss = GNSSManager(self.database.gnss if self.database else None)
         self.native_gnss = NativeGNSS()
         self.latest_udp_sender: tuple[str, int] | None = None
@@ -1122,6 +1202,7 @@ class EVGateway:
         if tracked:
             if data['sample_time_ms'] < self.latest_sample_time_ms:
                 source_store = TelemetryStore() # Backfill history without rewinding live values.
+                source_store.set_geometry(self.store.geometry())
                 forward_live = False
             else:
                 self.latest_sample_time_ms = data['sample_time_ms']
@@ -1166,6 +1247,7 @@ class EVGateway:
     def _publish_snapshot(self, snapshot: dict, forward_live: bool) -> None:
         self.tuning.append(snapshot)
         self.battery.append(snapshot)
+        self.battery_prediction.observe(snapshot)
         if not forward_live:
             return
         payload = json.dumps(self.snapshot(), separators=(",", ":"), ensure_ascii=False).encode("utf-8")
@@ -1233,6 +1315,7 @@ class EVGateway:
         result.update(self.gnss.telemetry())
         if include_display_test:
             result.update(self.display_test.snapshot(float(result.get("tps_pct", 0.0))))
+            result["driver_message"] = self.driver_messages.snapshot()
         with self.command_lock:
             if self.relay_ping_baseline is not None and now > self.relay_ping_deadline:
                 self.command_state["command_status"] = "TIMEOUT"
@@ -1259,6 +1342,15 @@ class EVGateway:
         ):
             result["config_ack"] = True
         return result
+
+    def set_geometry(self, data) -> dict[str, Any]:
+        geometry = validate_geometry(data)
+        if self.database is None:
+            raise ValueError('설정을 저장할 DB가 비활성화되어 있습니다.')
+        with self.relay_ingest_lock:
+            geometry = self.database.geometry(geometry)
+            self.store.set_geometry(geometry)
+        return geometry
 
     def set_recording(self, active: bool, label: str = "") -> dict[str, Any]:
         if self.database is None:
@@ -1430,6 +1522,16 @@ class EVGateway:
                     return "ESP32 serial"
                 except Exception:
                     pass
+        # Prefer a recently observed direct pit link over an internet roundtrip.
+        with self.transport_lock:
+            local_fresh = time.monotonic() - self.transport_last.get("WIFI_UDP", 0.0) < 1.5
+        if local_fresh and self.latest_udp_sender is not None:
+            try:
+                self.forward_socket.sendto(encoded.rstrip(b"\n"),
+                    (self.latest_udp_sender[0], self.command_port))
+                return f"ESP32 local Wi-Fi {self.latest_udp_sender[0]}:{self.command_port}"
+            except OSError:
+                pass
         if self._queue_relay_command(command):
             return "ESP32 internet relay"
         if self.latest_udp_sender is not None:
@@ -1499,6 +1601,10 @@ class EVGateway:
 
     def submit_control(self, data: Mapping[str, Any]) -> dict[str, Any]:
         command_type = str(data.get("type", "")).strip().lower()
+        if command_type == "parameter_update":
+            # Versioned extension API adapts only the deployed LIVE_TV group.
+            # PID/unknown/partial updates fail before any vehicle command is sent.
+            return self.submit_live_control(to_live_command(data))
         if command_type in {"recording_start", "recording_stop"}:
             return {
                 "ok": True,
@@ -1529,7 +1635,10 @@ class EVGateway:
             return {"ok": queued, **result}
         if command_type == "live_tv":
             return self.submit_live_control(data)
-        return self.submit_config(data)
+        if command_type in {"", "pit_config"}:
+            return self.submit_config(data)
+        return {"ok": False, "command_status": "REJECTED",
+                "command_message": "Unsupported command type"}
 
     def control_heartbeat_loop(self) -> None:
         while not self.stop_event.wait(0.1):
@@ -1766,6 +1875,60 @@ def make_handler(gateway: EVGateway) -> type[BaseHTTPRequestHandler]:
                 return
             parsed = urlparse(self.path)
             path = parsed.path
+            if path in {"/comms", "/comms/"}:
+                self._send((PROJECT_ROOT / "web" / "comms" / "index.html").read_bytes(), "text/html; charset=utf-8")
+                return
+            if path == "/api/driver-message":
+                self._send(json.dumps(gateway.driver_messages.snapshot(), ensure_ascii=False).encode("utf-8"),
+                           "application/json; charset=utf-8")
+                return
+            if path in {"/coach", "/coach/", "/coach/app.js", "/coach/coach.css"}:
+                asset = path.rsplit('/', 1)[-1] if path.endswith(('.js', '.css')) else "index.html"
+                mime = "text/javascript" if asset.endswith(".js") else "text/css" if asset.endswith(".css") else "text/html"
+                self._send((PROJECT_ROOT / "web" / "coach" / asset).read_bytes(), mime + "; charset=utf-8")
+                return
+            if path in {"/onboard", "/onboard/", "/onboard/app.js", "/onboard/hud.css"}:
+                asset = path.rsplit('/', 1)[-1] if path.endswith(('.js', '.css')) else "index.html"
+                mime = "text/javascript" if asset.endswith(".js") else "text/css" if asset.endswith(".css") else "text/html"
+                self._send((PROJECT_ROOT / "web" / "onboard" / asset).read_bytes(), mime + "; charset=utf-8")
+                return
+            if path == "/api/onboard":
+                result = project_onboard(gateway.snapshot())
+                self._send(json.dumps(result, ensure_ascii=False, allow_nan=False).encode('utf-8'),
+                           'application/json; charset=utf-8')
+                return
+            if path == '/api/vehicle/geometry':
+                result = {'geometry': gateway.store.geometry(), 'can_edit': gateway.database is not None and
+                          is_local_http_request(self.client_address[0], self.headers)}
+                self._send(json.dumps(result).encode(), 'application/json; charset=utf-8')
+                return
+            if path == '/battery/prediction.js':
+                self._send((PROJECT_ROOT / 'web' / 'battery' / 'prediction.js').read_bytes(), 'text/javascript; charset=utf-8')
+                return
+            if path == '/api/battery/prediction':
+                result = gateway.battery_prediction.read(gateway.snapshot())
+                result['can_edit'] = gateway.database is not None and is_local_http_request(self.client_address[0], self.headers)
+                self._send(json.dumps(result, ensure_ascii=False, allow_nan=False).encode('utf-8'), 'application/json; charset=utf-8')
+                return
+            if path in {"/tv", "/tv/", "/tv/app.js", "/tv/tv.css"}:
+                asset = path.rsplit('/', 1)[-1] if path.endswith(('.js', '.css')) else "index.html"
+                mime = "text/javascript" if asset.endswith(".js") else "text/css" if asset.endswith(".css") else "text/html"
+                self._send((PROJECT_ROOT / "web" / "tv" / asset).read_bytes(), mime + "; charset=utf-8")
+                return
+            if path == "/api/control/catalog":
+                self._send(json.dumps(tuning_catalog(gateway.snapshot()), ensure_ascii=False).encode('utf8'),
+                           'application/json; charset=utf-8')
+                return
+            if path == "/api/tv":
+                # Control status must never contain display-test overrides.
+                result = gateway.snapshot()
+                result["control_client_allowed"] = (
+                    gateway.enable_control and
+                    is_local_http_request(self.client_address[0], self.headers)
+                )
+                self._send(json.dumps(result, ensure_ascii=False).encode("utf-8"),
+                           "application/json; charset=utf-8")
+                return
             if serve_recording_get(self, gateway, parsed, PROJECT_ROOT):
                 return
             map_assets = {'/map': 'map/index.html', '/map/': 'map/index.html',
@@ -1801,7 +1964,7 @@ def make_handler(gateway: EVGateway) -> type[BaseHTTPRequestHandler]:
                 except ValueError as exc:
                     self._send(json.dumps({'error':str(exc)}).encode(), 'application/json', HTTPStatus.BAD_REQUEST)
                 return
-            if path in {"/", "/pit", "/pit/", "/tuning", "/tuning/", "/tuning/app.js", "/tuning/battery.js", "/tuning/dashboard.css"}:
+            if path in {"/", "/pit", "/pit/", "/tuning", "/tuning/", "/tuning/app.js", "/tuning/battery.js", "/tuning/geometry.js", "/tuning/dashboard.css"}:
                 asset = path.rsplit('/', 1)[-1] if path.endswith(('.js', '.css')) else "index.html"
                 self._send((TUNING_DIR / asset).read_bytes(),
                            "text/javascript; charset=utf-8" if asset.endswith(".js") else
@@ -1842,7 +2005,7 @@ def make_handler(gateway: EVGateway) -> type[BaseHTTPRequestHandler]:
                 self.close_connection = True
                 keys = [c[0] for c in (BATTERY_CHANNELS if battery_export else CHANNELS)]
                 status_keys = ['rpm_left_quality', 'rpm_right_quality', 'rpm_left_rejected_pct',
-                               'rpm_right_rejected_pct', 'motor_command_mode']
+                               'rpm_right_rejected_pct', 'motor_command_mode', 'speed_geometry']
                 if battery_export:
                     status_keys = list(battery_status({}))
                 output = io.StringIO()
@@ -1861,7 +2024,8 @@ def make_handler(gateway: EVGateway) -> type[BaseHTTPRequestHandler]:
                             else:
                                 writer.writerow([sample['id'], sample['captured_at_utc'], sample['source_timestamp_ms'],
                                                  *[sample['values'].get(k) for k in keys],
-                                                 *[sample['status'].get(k) for k in status_keys], *([raw] if raw_export else [])])
+                                                 *[json.dumps(sample['status'].get(k)) if k == 'speed_geometry' else
+                                                   sample['status'].get(k) for k in status_keys], *([raw] if raw_export else [])])
                         self.wfile.write(output.getvalue().encode('utf-8'))
                         output.seek(0); output.truncate()
                         if not page['more']: break
@@ -1913,8 +2077,14 @@ def make_handler(gateway: EVGateway) -> type[BaseHTTPRequestHandler]:
                         keys = ("stm_online", "imu_online", "tqv_internal_online", "tv_active",
                                 "speed_online", "speed_kmh", "bms_online", "battery_pack_voltage_v",
                                 "battery_soc_pct", "battery_current_a", "bms_cell_voltages_v",
+                                "ed_active", "fault_code", "limit_reason", "sas_online", "sas_ok",
+                                "tps_online", "tps_ok", "motor_left_ok", "motor_right_ok",
                                 "gnss_online", "gnss_latitude_deg", "gnss_longitude_deg", "gnss_accuracy_m")
                         result = {key: snapshot.get(key) for key in keys}
+                        result.update(battery_status(snapshot))
+                        battery_values = battery_project(snapshot)
+                        result.update({key: battery_values.get(key) for key in
+                                       ('bms_temp_max_c', 'bms_cell_delta_mv', 'battery_power_kw')})
                     elif path == "/api/tuning/sessions":
                         result = {"sessions": [] if gateway.database is None else gateway.database.list_sessions(500)}
                     elif path == "/api/tuning/samples":
@@ -2017,31 +2187,55 @@ def make_handler(gateway: EVGateway) -> type[BaseHTTPRequestHandler]:
             if serve_native_gnss(self, gateway):
                 return
             path = self.path.split("?", 1)[0]
-            if path not in {"/api/test", "/api/control", "/api/vehicle/exchange", "/api/gnss", "/api/gnss/control", "/api/records/control"}:
+            if path not in {"/api/driver-message", "/api/test", "/api/control", "/api/vehicle/exchange", "/api/vehicle/geometry", "/api/battery/prediction", "/api/gnss", "/api/gnss/control", "/api/records/control"}:
                 self._send(b"not found", "text/plain", HTTPStatus.NOT_FOUND)
-                return
-            if path in {"/api/test", "/api/control"} and not is_local_http_request(
-                self.client_address[0], self.headers
-            ):
-                self._send(b"local pit client required", "text/plain", HTTPStatus.FORBIDDEN)
-                return
-            if path == "/api/vehicle/exchange" and not gateway.relay_token:
-                self._send(b"relay disabled", "text/plain", HTTPStatus.SERVICE_UNAVAILABLE)
-                return
-            if path == "/api/vehicle/exchange" and not gateway.relay_authorized(
-                self.headers.get("Authorization", "")
-            ):
-                self._send(b"relay authorization required", "text/plain", HTTPStatus.UNAUTHORIZED)
                 return
             try:
                 maximum = MAX_BATCH_BYTES if path == "/api/vehicle/exchange" else 4096
                 length = max(0, int(self.headers.get("Content-Length", "0")))
                 if length > maximum:
                     raise ValueError("request body too large")
-                payload = json.loads(self.rfile.read(length).decode("utf-8"))
+                # Consume the bounded body before rejecting: unread bytes can reset Windows TCP.
+                body = self.rfile.read(length)
+                if path in {"/api/test", "/api/control", "/api/vehicle/geometry", "/api/battery/prediction"} and not is_local_http_request(
+                    self.client_address[0], self.headers
+                ):
+                    self._send(b"local pit client required", "text/plain", HTTPStatus.FORBIDDEN)
+                    return
+                if path == "/api/vehicle/exchange" and not gateway.relay_token:
+                    self._send(b"relay disabled", "text/plain", HTTPStatus.SERVICE_UNAVAILABLE)
+                    return
+                if path == "/api/vehicle/exchange" and not gateway.relay_authorized(
+                    self.headers.get("Authorization", "")
+                ):
+                    self._send(b"relay authorization required", "text/plain", HTTPStatus.UNAUTHORIZED)
+                    return
+                payload = json.loads(body.decode("utf-8"))
                 if not isinstance(payload, dict):
                     raise ValueError("JSON object required")
-                if path == '/api/records/control':
+                if path == '/api/driver-message':
+                    if not self.headers.get('Content-Type', '').startswith('application/json'):
+                        raise ValueError('application/json required')
+                    origin = self.headers.get('Origin')
+                    if origin and urlparse(origin).netloc != self.headers.get('Host'):
+                        raise ValueError('same-origin request required')
+                    result = gateway.driver_messages.apply(payload)
+                elif path == '/api/battery/prediction':
+                    if not self.headers.get('Content-Type', '').startswith('application/json'):
+                        raise ValueError('application/json required')
+                    origin = self.headers.get('Origin')
+                    if origin and urlparse(origin).netloc != self.headers.get('Host'):
+                        raise ValueError('same-origin request required')
+                    gateway.battery_prediction.command(payload)
+                    result = gateway.battery_prediction.read(gateway.snapshot())
+                elif path == '/api/vehicle/geometry':
+                    if not self.headers.get('Content-Type', '').startswith('application/json'):
+                        raise ValueError('application/json required')
+                    origin = self.headers.get('Origin')
+                    if origin and urlparse(origin).netloc != self.headers.get('Host'):
+                        raise ValueError('same-origin request required')
+                    result = {'geometry': gateway.set_geometry(payload)}
+                elif path == '/api/records/control':
                     if not self.headers.get('Content-Type', '').startswith('application/json'):
                         raise ValueError('application/json required')
                     origin = self.headers.get('Origin')

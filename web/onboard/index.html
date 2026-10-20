@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="ko">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DJY · Onboard</title><link rel="stylesheet" href="/onboard/hud.css"></head>
+<body>
+<main id="stage">
+  <video id="video" playsinline muted loop aria-label="온보드 영상 미리보기"></video>
+  <div id="placeholder"><div class="camera-icon" aria-hidden="true"></div><span>ONBOARD VIDEO</span><p>영상을 선택하면 HUD와 함께 미리 볼 수 있습니다.</p><small>실시간 중계에서는 투명 HUD를 영상 소스 위에 올리세요.</small></div>
+  <header class="identity"><span class="team-mark">DJY<span></span></span><div><b>EV TELEMETRY</b><small>ONBOARD / 2026</small></div></header>
+  <div class="feed-status"><i id="statusDot"></i><b id="link">WAITING FOR TELEMETRY</b><span id="demoBadge" hidden>DEMO · 가상 데이터</span></div>
+  <section class="hud" aria-label="실시간 차량 정보">
+    <div class="g-module">
+      <div class="g-title">G-FORCE <span>±2 G</span></div>
+      <div class="g-total" aria-label="수평 합성 가속도"><strong id="gTotal">—</strong><span>G</span></div>
+      <svg class="g-dial" viewBox="0 0 140 140" role="img" aria-label="횡가속도와 종가속도 G-force">
+        <circle cx="70" cy="70" r="58" class="g-ring"/><circle cx="70" cy="70" r="29" class="g-inner"/>
+        <path d="M70 12V128 M12 70H128" class="g-cross"/><text x="70" y="24">ACCEL</text><text x="70" y="121">DECEL</text>
+        <circle id="gDot" cx="70" cy="70" r="6" visibility="hidden"/>
+      </svg>
+      <div class="g-values"><span>LAT <b id="lat">—</b></span><span>LONG <b id="long">—</b></span></div>
+    </div>
+    <div class="main-hud">
+      <div class="hud-heading"><span class="accent"></span><b>DJY / ONBOARD</b><small>LIVE VEHICLE DATA</small></div>
+      <div class="rpm-module" aria-label="좌우 모터 RPM">
+        <div class="rpm-row"><span class="side-label">L</span><div id="rpmLeftBar" class="rpm-bar"></div><b id="rpmLeft">—</b></div>
+        <div class="rpm-row"><span class="side-label">R</span><div id="rpmRightBar" class="rpm-bar"></div><b id="rpmRight">—</b></div>
+        <div class="rpm-scale"><span>0</span><span>2</span><span>4</span><span>6</span><span>8</span><small>RPM × 1000</small></div>
+      </div>
+      <div class="primary-row">
+        <div class="power-block" id="powerBlock"><span class="metric-label">POWER</span><strong id="power">—</strong><small id="powerHint">미확인</small></div>
+        <div class="speed-block"><span class="metric-label">SPEED</span><strong id="speed">—</strong><span class="speed-unit">KM/H</span></div>
+        <div class="throttle-block"><span class="metric-label">THR</span><div class="throttle-track"><div id="throttleFill"></div></div><b id="throttle">—</b><small>%</small></div>
+      </div>
+      <div class="imu-strip"><span>YAW <b id="yaw">—</b><small>°/s</small></span><span>STEER <b id="steer">—</b><small>°</small></span><span class="imu-label">IMU</span></div>
+    </div>
+  </section>
+</main>
+<nav class="toolbar" aria-label="온보드 화면 설정">
+  <a href="/pit">← PIT</a><label class="button">영상 선택<input id="videoFile" type="file" accept="video/*"></label>
+  <button id="play" disabled>재생 / 정지</button><button id="fullscreen">전체 화면</button>
+  <a id="overlayLink" href="/onboard?overlay=1" target="_blank" rel="noopener">투명 HUD ↗</a>
+  <a id="modeLink" href="/onboard?demo=1">데모 보기</a>
+  <small>전원 신호 미수신 시 미확인 · RPM 눈금 0–8,000</small>
+</nav>
+<script src="/onboard/app.js"></script>
+</body></html>

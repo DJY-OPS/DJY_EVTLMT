@@ -17,17 +17,31 @@
     .led.on.red { border-color:var(--red); background:var(--red); }
     header { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; color:var(--muted); font:900 clamp(8px,1.3vw,12px)/1 Consolas,monospace; letter-spacing:.1em; }
     .test { display:none; color:var(--yellow); text-align:center; } .test.show { display:block; }
-    .link { justify-self:end; color:var(--red); } .link.live { color:var(--green); }
+    .link { justify-self:end; color:var(--red); } .link.live { color:var(--green); } .link.wait { color:var(--yellow); }
+    .display.delayed .main { opacity:.6; }
+    .display.delayed .sensor { color:var(--muted); border-color:var(--line); animation:none; }
+    .connection { display:flex; align-items:center; justify-content:end; gap:10px; white-space:nowrap; }
+    .signal { display:flex; gap:5px; align-items:center; color:var(--muted); letter-spacing:0; }
+    .signal-bars { display:flex; align-items:end; gap:2px; height:14px; }
+    .signal-bars i { width:4px; height:25%; background:#333; }.signal-bars i:nth-child(2){height:50%}.signal-bars i:nth-child(3){height:75%}.signal-bars i:nth-child(4){height:100%}.signal-bars i.on{background:currentColor}
+    .lap-stack { min-height:0; display:grid; grid-template-rows:1fr 1fr; gap:5px; }
+    .lap-card small { color:var(--muted); font:700 clamp(7px,1vw,11px) Consolas,monospace; margin-top:6px; }
+    .lap-card.faster strong { color:var(--green); }.lap-card.slower strong { color:var(--red); }
+    .lap-result { position:absolute; inset:0; z-index:15; display:none; place-content:center; gap:12px; text-align:center; background:var(--yellow); color:#000; font:900 clamp(20px,4vw,45px) Consolas,monospace; }
+    .lap-result.show { display:grid; animation:lapblink .7s ease-in-out 5; }.lap-result.faster { background:var(--green); }.lap-result.slower { background:var(--red); }
+    .lap-result strong { font-size:clamp(55px,15vw,160px); }.lap-result small { font-size:clamp(12px,2.5vw,30px); }
+    @keyframes lapblink { 50% { filter:brightness(.35); } }
+    @media(prefers-reduced-motion:reduce){.lap-result.show{animation:none}}
     .main { min-height:0; display:grid; grid-template-columns:minmax(52px,.55fr) minmax(105px,.95fr) minmax(230px,1.8fr) minmax(105px,.95fr) minmax(52px,.55fr); gap:5px; }
     .box { min-width:0; border:2px solid var(--line); background:var(--black); }
     .rpm-gauge { min-height:0; display:grid; grid-template-rows:auto auto 1fr; gap:4px; padding:6px; text-align:center; }
     .rpm-gauge label,.lap-card label,.speed label,.battery label { color:var(--muted); font:900 clamp(8px,1.2vw,11px)/1 Consolas,monospace; letter-spacing:.08em; }
-    .rpm-gauge strong { color:var(--white); font:900 clamp(14px,2.4vw,24px)/1 "Arial Narrow",Arial,sans-serif; }
+    .rpm-gauge strong { color:var(--white); font:900 clamp(12px,1.8vw,22px)/1 "Arial Narrow",Arial,sans-serif; }
     .vbar { min-height:0; position:relative; border:2px solid var(--white); background:#050505; }
     .vbar i { position:absolute; left:0; right:0; bottom:0; height:0; background:var(--green); transition:height .05s linear; }
     .vbar i.mid { background:var(--yellow); } .vbar i.high { background:var(--red); }
     .lap-card { display:flex; flex-direction:column; align-items:center; justify-content:center; padding:6px; text-align:center; }
-    .lap-card strong { margin-top:10px; color:var(--white); font:900 clamp(27px,4.6vw,48px)/1 Consolas,monospace; letter-spacing:-.08em; white-space:nowrap; }
+    .lap-card strong { margin-top:10px; color:var(--white); font:900 clamp(18px,3.3vw,38px)/1 Consolas,monospace; letter-spacing:-.08em; white-space:nowrap; }
     .lap-card.best { border-color:var(--green); } .lap-card.best strong { color:var(--green); }
     .lap-card.last { border-color:var(--yellow); } .lap-card.last strong { color:var(--yellow); }
     .center { min-height:0; display:grid; grid-template-rows:minmax(0,1fr) 70px; gap:5px; }
@@ -60,21 +74,20 @@
     .modes { display:grid; grid-template-columns:auto repeat(4,1fr); align-items:center; gap:4px; }
     .mode { height:27px; display:flex; align-items:center; justify-content:center; border:2px solid #555; color:#777; font:900 clamp(6px,.85vw,9px)/1 Consolas,monospace; }
     .mode.active { border-color:var(--white); background:var(--white); color:var(--black); }
-    .alert,.offline { position:absolute; inset:0; z-index:20; display:none; place-items:center; text-align:center; }
-    .alert.show,.offline.show { display:grid; }
+    .alert { position:absolute; inset:0; z-index:20; display:none; place-items:center; text-align:center; }
+    .alert.show { display:grid; }
     .alert { --alert-bg:var(--white); --alert-fg:var(--black); background:var(--alert-bg); color:var(--alert-fg); animation:alertblink .42s step-end infinite; }
     .alert span { max-width:94%; font:900 clamp(46px,12vw,130px)/.86 "Arial Black",Arial,sans-serif; overflow-wrap:anywhere; }
     .alert small { display:block; margin-top:16px; font:900 clamp(12px,2vw,22px)/1 Consolas,monospace; letter-spacing:.08em; }
     .alert.green { --alert-bg:var(--green); } .alert.yellow { --alert-bg:var(--yellow); }
     .alert.red,.alert.stop,.alert.fault { --alert-bg:var(--red); --alert-fg:var(--white); }
     .alert.box,.alert.adjust,.alert.tqv { --alert-bg:var(--orange); } .alert.checkered { --alert-bg:var(--white); }
+    .alert.adjust span { font-size:clamp(24px,6vw,64px); line-height:1.05; }
     .alert.mode-qualifying { --alert-bg:var(--yellow); } .alert.mode-race { --alert-bg:var(--white); }
     .alert.mode-chrg { --alert-bg:var(--green); } .alert.mode-attack { --alert-bg:var(--orange); }
     .alert.setting { --alert-bg:var(--black); --alert-fg:var(--white); animation:none; }
     .alert.setting span { font-size:clamp(42px,9vw,95px); line-height:.82; }
     .alert.setting small { margin-top:20px; color:inherit; font:900 clamp(68px,18vw,190px)/.78 "Arial Black",Arial,sans-serif; letter-spacing:-.055em; }
-    .offline { background:var(--black); color:var(--red); font:900 clamp(42px,10vw,100px)/.9 "Arial Black",Arial,sans-serif; }
-    .offline small { display:block; margin-top:15px; color:var(--white); font:900 clamp(10px,1.7vw,17px) Consolas,monospace; }
     @keyframes alertblink { 50% { color:var(--black); background:var(--black); } }
     @keyframes valueblink { 50% { opacity:.15; } }
     @media(max-width:650px) {
@@ -82,27 +95,37 @@
       .main { grid-template-columns:42px 82px minmax(160px,1.8fr) 82px 42px; gap:3px; }
       .center { grid-template-rows:minmax(0,1fr) 54px; gap:3px; }
       .speed strong { font-size:19vw; }
-      .lap-card strong { font-size:5.3vw; }
+      .lap-card strong { font-size:3.5vw; }
       .systems { grid-template-rows:24px 42px; gap:3px; }
       .controls { gap:3px; }
       .modes { padding:3px; }
       .modes label { display:none; }
       .mode { font-size:6px; }
     }
+    @media(orientation:portrait) {
+      .display { grid-template-rows:18px 34px minmax(0,1fr) auto; }
+      header { grid-template-columns:1fr auto; gap:4px; }.connection{grid-column:1/-1;justify-content:space-between}.test{grid-column:2;grid-row:1}
+      .main { grid-template-columns:44px minmax(0,1fr) minmax(0,1fr) 44px; grid-template-rows:1fr 1fr; }
+      .rpm-gauge{padding:3px}.rpm-gauge strong{font-size:12px}
+      .rpm-gauge:first-child{grid-column:1;grid-row:1/3}.rpm-gauge:last-child{grid-column:4;grid-row:1/3}
+      .center{grid-column:2/4;grid-row:1}.lap-stack{grid-row:2;grid-template-rows:1fr 1fr}
+      .main>.lap-stack:nth-child(2){grid-column:2}.main>.lap-stack:nth-child(4){grid-column:3}
+      .speed strong{font-size:24vw}.lap-card strong{font-size:6vw}.controls{grid-template-columns:1fr 1fr}.systems{grid-template-rows:38px 86px}.sensors{grid-template-columns:repeat(4,1fr)}
+    }
   </style>
 </head>
 <body>
   <main class="display">
     <div class="leds" id="leds" aria-label="average motor RPM LEDs"></div>
-    <header><span>DJY EV · DRIVER</span><span class="test" id="test">DISPLAY TEST</span><span class="link" id="link">● OFFLINE</span></header>
+    <header><span>DJY EV · DRIVER</span><span class="test" id="test">DISPLAY TEST</span><span class="connection"><span class="signal" id="signal" title="ESP ↔ 핫스팟 Wi-Fi 수신 세기 · 휴대폰 LTE/5G 세기와 다릅니다"><span class="signal-bars" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span id="signalText">Wi-Fi 대기</span></span><span class="link wait" id="link" role="status">수신 대기</span></span></header>
     <section class="main">
       <div class="rpm-gauge box"><label>RPM L</label><strong id="rpmL">----</strong><div class="vbar"><i id="barL"></i></div></div>
-      <div class="lap-card best box"><label>BEST LAP</label><strong id="bestLap">--:--.---</strong></div>
+      <div class="lap-stack"><div class="lap-card box"><label>CURRENT LAP</label><strong id="currentLap">--:--.---</strong><small id="lapStatus">GPS 대기</small></div><div class="lap-card best box"><label>BEST LAP</label><strong id="bestLap">--:--.---</strong></div></div>
       <div class="center">
         <div class="speed box"><label>SPEED</label><strong id="speed">--</strong><small>km/h</small></div>
         <div class="battery box"><label>BATTERY</label><div class="soc"><i id="soc"></i></div><strong><span id="battery">--</span>%</strong></div>
       </div>
-      <div class="lap-card last box"><label>LAST LAP</label><strong id="lastLap">--:--.---</strong></div>
+      <div class="lap-stack"><div class="lap-card last box"><label>LAST LAP</label><strong id="lastLap">--:--.---</strong></div><div class="lap-card box" id="deltaCard"><label>DELTA vs PREV</label><strong id="lapDelta">—</strong><small>완료 랩 − 그 전 랩</small></div></div>
       <div class="rpm-gauge box"><label>RPM R</label><strong id="rpmR">----</strong><div class="vbar"><i id="barR"></i></div></div>
     </section>
     <section class="systems">
@@ -114,32 +137,98 @@
         <div class="modes"><label>MODE</label><span class="mode" data-mode="QUALIFYING">QUALI</span><span class="mode" data-mode="RACE">RACE</span><span class="mode chrg" data-mode="CHRG">CHRG</span><span class="mode attack" data-mode="ATTACK">ATTACK</span></div>
       </div>
     </section>
+    <div class="lap-result" id="lapResult" role="status"><span id="resultLap"></span><strong id="resultDelta"></strong><small id="resultTimes"></small></div>
     <div class="alert" id="alert"><span><b id="alertTitle">YELLOW FLAG</b><small id="alertNote">TRACK HAZARD</small></span></div>
-    <div class="offline" id="offline"><span>TELEMETRY<br>OFFLINE<small>차량 통신을 확인하세요</small></span></div>
   </main>
   <script>
-    const $=id=>document.getElementById(id), RPM_MAX=12000;
-    const flags={GREEN:['GREEN FLAG','TRACK CLEAR','green'],YELLOW:['YELLOW FLAG','TRACK HAZARD','yellow'],RED:['RED FLAG','STOP IMMEDIATELY','red'],STOP:['STOP','SESSION STOPPED','stop'],CHECKERED:['CHEQUERED','SESSION FINISHED','checkered'],BOX:['BOX THIS LAP','PIT CALL','box']};
+    const $=id=>document.getElementById(id), RPM_MAX=12000, OFFLINE_MS=10000;
+    const flags={GREEN:['GREEN FLAG','TRACK CLEAR','green'],YELLOW:['YELLOW FLAG','TRACK HAZARD','yellow'],RED:['RED FLAG','STOP IMMEDIATELY','red'],STOP:['STOP','SESSION STOPPED','stop'],CHECKERED:['CHEQUERED','SESSION FINISHED','checkered'],BOX:['BOX BOX','PIT THIS LAP','box']};
     const ledRoot=$('leds');
     const leds=Array.from({length:16},(_,i)=>{const n=document.createElement('i');n.className=`led ${i<9?'green':i<13?'yellow':'red'}`;ledRoot.appendChild(n);return n;});
     let fetching=false,lastMode=null,lastTqv=null,lastRegen=null,settingAlert=null;
-    function formatLap(value){const n=Number(value);if(!Number.isFinite(n)||n<=0)return'--:--.---';const m=Math.floor(n/60),s=n-m*60;return`${m}:${s.toFixed(3).padStart(6,'0')}`;}
+    const openedAt=performance.now(),sensorMissing=new Map();
+    let lastVehicleAt=null,lastResponseAt=null,latest=null,lapTracker=null,lapResultUntil=0;
+    let pitAlertUntil=0;
+    function formatLap(value){if(value===null||value===undefined||!Number.isFinite(Number(value))||Number(value)<0)return'--:--.---';const ms=Math.round(Number(value)*1000);return`${Math.floor(ms/60000)}:${(Math.floor(ms/1000)%60).toString().padStart(2,'0')}.${(ms%1000).toString().padStart(3,'0')}`;}
+    function validLap(value){return Number.isFinite(value)&&value>0;}
+    function deltaText(value){return `${value<-.0005?'▲ −':value>.0005?'▼ +':'◆ '}${Math.abs(value).toFixed(3)}`;}
     function rpmGauge(value,barId){const ratio=Math.max(0,Math.min(1,value/RPM_MAX)),bar=$(barId);bar.style.height=`${ratio*100}%`;bar.className=ratio>=.86?'high':ratio>=.68?'mid':'';return ratio;}
-    function setSensor(id,ok,warn=false){$(id).className=`sensor ${warn?'warn':ok?'ok':''}`;}
+    function setSensor(id,ok,warn=false){
+      if(ok){sensorMissing.delete(id);$(id).className='sensor ok';$(id).style.color='';return;}
+      if(!sensorMissing.has(id))sensorMissing.set(id,performance.now());
+      const expired=performance.now()-sensorMissing.get(id)>=OFFLINE_MS;
+      $(id).className=`sensor ${warn||expired?'warn':''}`;
+      $(id).style.color=warn||expired?'':'var(--yellow)';
+    }
+    function renderLaps(d){
+      $('bestLap').textContent=validLap(d.best_lap_s)?formatLap(d.best_lap_s):'--:--.---';
+      $('lastLap').textContent=validLap(d.last_lap_s)?formatLap(d.last_lap_s):'--:--.---';
+      const key=`${d.gnss_epoch||''}:${d.gnss_run_id??''}:${!!d.test_override}`,count=d.gnss_lap_count??d.lap_number??0;
+      const delta=Number.isFinite(d.lap_delta_s)?d.lap_delta_s:null;
+      const kind=delta===null?'':delta<-.0005?'faster':delta>.0005?'slower':'';
+      $('lapDelta').textContent=delta===null?'—':deltaText(delta);$('deltaCard').className=`lap-card box ${kind}`;
+      if(lapTracker&&lapTracker.key===key&&count>lapTracker.count&&delta!==null){
+        $('resultLap').textContent=`LAP ${count} · ${kind==='faster'?'FASTER':kind==='slower'?'SLOWER':'SAME'}`;
+        $('resultDelta').textContent=deltaText(delta);
+        $('resultTimes').textContent=`${formatLap(d.last_lap_s)} / PREV ${formatLap(d.previous_lap_s)}`;
+        $('lapResult').className=`lap-result show ${kind}`;lapResultUntil=performance.now()+3500;
+      }
+      if(!lapTracker||lapTracker.key!==key||count<lapTracker.count){$('lapResult').className='lap-result';lapResultUntil=0;}
+      lapTracker={key,count};
+      if(d.gnss_online&&d.gnss_lap_active&&validLap(d.lap_time_s)||d.test_override&&validLap(d.lap_time_s))$('currentLap').textContent=formatLap(d.lap_time_s);
+      else $('currentLap').textContent='--:--.---';
+    }
+    function paintConnection(){
+      const now=performance.now(),age=now-(lastVehicleAt??openedAt),serverAge=now-(lastResponseAt??openedAt);
+      const offline=age>=OFFLINE_MS||serverAge>=OFFLINE_MS,live=!!latest?.online&&age<1500&&serverAge<1500;
+      $('link').textContent=offline?'● 연결 끊김':live?'● LIVE':lastVehicleAt===null?'수신 대기':`수신 지연 ${Math.floor(Math.max(age,serverAge)/1000)}초`;
+      $('link').className=`link ${offline?'':live?'live':'wait'}`;
+      document.querySelector('.display').classList.toggle('delayed',!live);
+      if(!live){$('soc').className='';leds.forEach(n=>n.classList.remove('on'));}
+      if(offline){['speed','battery'].forEach(id=>$(id).textContent='--');['rpmL','rpmR'].forEach(id=>$(id).textContent='----');}
+      const gpsAge=Number.isFinite(latest?.gnss_age_ms)?latest.gnss_age_ms+serverAge:now-openedAt;
+      const gpsLive=!!latest?.gnss_online&&gpsAge<=3000&&serverAge<3000;
+      $('lapStatus').textContent=gpsLive?(latest.gnss_lap_active?(latest.lap_time_s>0?'LAP '+((latest.gnss_lap_count||0)+1):'출발선 통과 대기'):'측정 정지'):gpsAge<OFFLINE_MS?'GPS 수신 대기 / 지연':'GPS 연결 끊김';
+      if(!gpsLive)$('currentLap').textContent='--:--.---';
+      if(now>=lapResultUntil)$('lapResult').classList.remove('show');
+      const rssi=latest?.wifi_rssi_dbm,known=serverAge<3000&&age<3000&&latest?.wifi_connected&&Number.isFinite(rssi)&&rssi<0&&rssi>-127;
+      const level=known?(rssi>=-55?4:rssi>=-67?3:rssi>=-75?2:1):0;
+      $('signal').style.color=level>=3?'var(--green)':level===2?'var(--yellow)':level===1?'var(--red)':'var(--muted)';
+      $('signalText').textContent=known?`Wi-Fi ${['','약함','보통','좋음','매우 좋음'][level]}`:latest?.telemetry_transport==='USB'?'USB · Wi-Fi 미확인':'Wi-Fi 미확인';
+      $('signal').setAttribute('aria-label',known?`ESP 핫스팟 Wi-Fi ${level}/4칸, ${rssi} dBm`:'ESP 핫스팟 Wi-Fi 미확인');
+      $('signal').title=`ESP ↔ 핫스팟 Wi-Fi · LTE/5G 세기 아님${known?' · '+rssi+' dBm':''}`;
+      document.querySelectorAll('.signal-bars i').forEach((n,i)=>n.classList.toggle('on',i<level));
+      paintAlerts();
+    }
+    function paintAlerts(){
+      const d=latest||{},pit=d.driver_message||{},now=performance.now();
+      if(flags[pit.flag]&&now<pitAlertUntil)showAlert(...flags[pit.flag]);
+      else if(pit.message&&now<pitAlertUntil)showAlert(pit.message,'PIT MESSAGE','adjust');
+      else if(flags[d.flag])showAlert(...flags[d.flag]);
+      else if(d.adjustment_message)showAlert(d.adjustment_message,'SETTING CHANGED','adjust');
+      else if(settingAlert&&now<settingAlert.until)showSetting(settingAlert.label,settingAlert.value,settingAlert.kind);
+      else $('alert').className='alert';
+    }
     function showAlert(title,note,kind){$('alertTitle').textContent=title;$('alertNote').textContent=note;$('alert').className=`alert show ${kind}`;}
     function showSetting(label,value,kind){$('alertTitle').textContent=label;$('alertNote').textContent=value;$('alert').className=`alert show setting ${kind}`;}
     function queueSetting(label,value,kind){settingAlert={label,value,kind,until:performance.now()+2500};}
     async function tick(){
       if(fetching)return;fetching=true;
+      const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),2000);
       try{
-        const response=await fetch('/api/telemetry',{cache:'no-store'});if(!response.ok)throw new Error();
+        const response=await fetch('/api/telemetry',{cache:'no-store',signal:controller.signal});if(!response.ok)throw new Error();
         const d=await response.json(),online=!!d.online,rpmL=Math.max(0,Number(d.rpm_left)||0),rpmR=Math.max(0,Number(d.rpm_right)||0),average=(rpmL+rpmR)/2;
+        latest=d;lastResponseAt=performance.now();
+        pitAlertUntil=lastResponseAt+Math.max(0,Number(d.driver_message?.remaining_ms)||0);
+        if(Number.isFinite(d.vehicle_age_ms))lastVehicleAt=lastResponseAt-d.vehicle_age_ms;
+        else if(online)lastVehicleAt=lastResponseAt;
+        renderLaps(d);paintConnection();
+        if(online){
         $('speed').textContent=online?Math.round(Number(d.speed_kmh)||0):'--';$('rpmL').textContent=online?Math.round(rpmL):'----';$('rpmR').textContent=online?Math.round(rpmR):'----';
-        $('bestLap').textContent=formatLap(d.best_lap_s);$('lastLap').textContent=formatLap(d.last_lap_s);
         const ratioL=rpmGauge(rpmL,'barL'),ratioR=rpmGauge(rpmR,'barR'),ledCount=Math.ceil(Math.max(0,Math.min(1,average/RPM_MAX))*leds.length);leds.forEach((n,i)=>n.classList.toggle('on',i<ledCount));
         const soc=Math.max(0,Math.min(100,Number(d.battery_soc_pct)||0));$('battery').textContent=online?Math.round(soc):'--';$('soc').style.width=`${soc}%`;$('soc').className=soc<=10?'critical':soc<=25?'low':'';
         const fault=Number(d.fault_code||0),frontCan=!!d.front_sensor_online&&fault!==1,tpsOk=!!d.tps_ok&&fault!==2,sasOk=!!d.sas_ok&&fault!==5,imuOk=!!d.imu_ok&&fault!==3,rpmOk=fault!==4;
-        setSensor('sStm',!!d.stm_online,!d.stm_online);setSensor('sCan',frontCan,!frontCan);setSensor('sTps',tpsOk,!tpsOk);setSensor('sSas',sasOk,!sasOk);setSensor('sImu',imuOk,!imuOk);setSensor('sBms',!!d.bms_ok,!d.bms_ok);setSensor('sMl',!!d.motor_left_ok&&rpmOk,!d.motor_left_ok||!rpmOk);setSensor('sMr',!!d.motor_right_ok&&rpmOk,!d.motor_right_ok||!rpmOk);
+        setSensor('sStm',!!d.stm_online);setSensor('sCan',frontCan,fault===1);setSensor('sTps',tpsOk,fault===2);setSensor('sSas',sasOk,fault===5);setSensor('sImu',imuOk,fault===3);setSensor('sBms',!!d.bms_ok,!!d.bms_fault);setSensor('sMl',!!d.motor_left_ok&&rpmOk,!rpmOk);setSensor('sMr',!!d.motor_right_ok&&rpmOk,!rpmOk);
         const tv=Math.max(-100,Math.min(100,Number(d.tv_percent)||0)),fill=$('tvFill');fill.style.left=tv<0?`${50-Math.abs(tv)/2}%`:'50%';fill.style.width=`${Math.abs(tv)/2}%`;$('tvValue').textContent=Math.abs(tv)<.5?'CENTER':`${tv<0?'L':'R'} ${Math.abs(tv).toFixed(0)}%`;
         const mode=String(d.drive_mode||'RACE').toUpperCase();document.querySelectorAll('.mode').forEach(n=>n.classList.toggle('active',n.dataset.mode===mode));
         if(lastMode!==null&&mode!==lastMode)queueSetting('MODE',mode,`mode-${mode.toLowerCase()}`);
@@ -152,14 +241,13 @@
         $('regenRequest').textContent=Math.round(regen);$('regenApplied').textContent=Math.round(regenApplied);$('regenCard').classList.toggle('limited',!!d.regen_limited);
         if(lastRegen!==null&&Math.abs(regen-lastRegen)>=.5)queueSetting('REGEN',`${Math.round(regen)}%`,'tqv');
         lastRegen=regen;
-        $('test').classList.toggle('show',!!d.test_override);$('link').textContent=online?'● LIVE':'● OFFLINE';$('link').className=`link ${online?'live':''}`;
-        const flag=String(d.flag||'CLEAR').toUpperCase(),adjustment=String(d.adjustment_message||'').trim();
-        if(flags[flag])showAlert(...flags[flag]);else if(adjustment)showAlert(adjustment,'SETTING CHANGED','adjust');else if(settingAlert&&performance.now()<settingAlert.until)showSetting(settingAlert.label,settingAlert.value,settingAlert.kind);else $('alert').className='alert';
-        $('offline').classList.toggle('show',!online);
-      }catch(_){$('offline').classList.add('show');$('alert').className='alert';$('link').textContent='● OFFLINE';$('link').className='link';}
-      finally{fetching=false;}
+        }
+        $('test').classList.toggle('show',!!d.test_override);
+        paintAlerts();
+      }catch(_){paintConnection();}
+      finally{clearTimeout(timeout);fetching=false;}
     }
-    setInterval(tick,50);tick();
+    setInterval(paintConnection,100);setInterval(tick,100);tick();
   </script>
 </body>
 </html>

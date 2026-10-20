@@ -1,8 +1,8 @@
 #pragma once
 
 // Copy this file to config.h. config.h is excluded from Git.
-#define EV_WIFI_SSID "YOUR_HOTSPOT_SSID"
-#define EV_WIFI_PASSWORD "YOUR_HOTSPOT_PASSWORD"
+#define EV_WIFI_SSID "YOUR_WIFI_SSID"
+#define EV_WIFI_PASSWORD "YOUR_WIFI_PASSWORD"
 #define EV_PIT_HOST "192.168.0.10"
 
 #define EV_TELEMETRY_PORT 9003

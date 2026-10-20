@@ -22,14 +22,35 @@ outside this board package.
 
 1. Copy `include/config.example.h` to `include/config.h`.
 2. Enter the Wi-Fi hotspot and relay settings in `include/config.h`.
-3. Build from this directory with `pio run`.
+3. For the ngrok relay, build from the repository root with
+   `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build_esp_gateway.ps1`.
+   This synchronizes the saved PC URL/token and selects `platformio-modern.ini`
+   (Arduino ESP32 3.x with the verified TLS client). From this directory the
+   equivalent build is `pio run -c platformio-modern.ini` after configuring.
 4. Flash only after checking the connected board and COM port.
+
+The modern build defaults to `esp32-s3-r8` for the connected board's quad
+flash and 8 MB octal PSRAM (`qio_opi`). The 96 KiB relay queue is allocated
+once in PSRAM during setup, leaving internal RAM available for verified TLS.
+The flash partition layout remains 8 MB. For a board without PSRAM, explicitly
+select `-e esp32-s3-devkitc-1`; its queue falls back to internal RAM and HTTPS
+memory requirements must be checked separately. If queue allocation fails,
+USB telemetry continues and the HTTPS task is not started.
+
+Hardware reference: [Espressif PSRAM troubleshooting](https://docs.espressif.com/projects/arduino-esp32/en/latest/troubleshooting.html).
 
 `include/config.h` and `.pio/` are ignored so credentials and build artifacts
 are not committed. The default example keeps the internet relay and remote
 commands disabled. Remote commands must not be enabled with insecure TLS.
 
 ## Rear binary telemetry
+
+USB diagnostics default to 3000000 baud. For USB-UART adapters that cannot
+receive that rate reliably, set `EV_USB_BAUD` in private `config.h` (this PC's
+CP210x configuration uses 921600). The PC launcher reads this setting when
+`-EspPort` is supplied; direct gateway launches need `--baud 921600`.
+This setting does not change the Rear UART or CAN bitrate. Lower USB baud
+reduces USB throughput and requires separate validation for high-rate runs.
 
 The default UART mode now matches **workspace `stm_back/`**, not the older
 `firmware/tv_stm_esp/stm_back/` archive. Update Rear and ESP together:

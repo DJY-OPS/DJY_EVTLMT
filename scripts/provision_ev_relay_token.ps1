@@ -18,7 +18,7 @@ if (-not $match.Success) {
 }
 
 $currentToken = [regex]::Match($match.Value, '"([^"]*)"').Groups[1].Value
-if ($currentToken.Length -ge 16 -and -not $Rotate) {
+if ($currentToken.Length -ge 16 -and $currentToken -notlike 'REPLACE_*' -and -not $Rotate) {
     Write-Host 'EV relay token is already configured. No change made.'
     exit 0
 }
@@ -35,5 +35,11 @@ $replacement = $match.Groups[1].Value + $token + $match.Groups[2].Value
 $updated = [regex]::Replace($configText, $pattern, [System.Text.RegularExpressions.MatchEvaluator]{ param($m) $replacement }, 1)
 
 [IO.File]::WriteAllText($config, $updated, [System.Text.UTF8Encoding]::new($false))
+$settingsPath = Join-Path $env:USERPROFILE 'telemetry-tools\ev-relay.json'
+if (Test-Path -LiteralPath $settingsPath) {
+    $settings = [IO.File]::ReadAllText($settingsPath) | ConvertFrom-Json
+    $settings.relay_token = $token
+    [IO.File]::WriteAllText($settingsPath, ($settings | ConvertTo-Json), [System.Text.UTF8Encoding]::new($false))
+}
 Write-Host 'Generated a private EV relay token in ignored ESP config.h.'
 Write-Host 'Rebuild and flash the ESP32 before starting the Internet Pit Dashboard.'

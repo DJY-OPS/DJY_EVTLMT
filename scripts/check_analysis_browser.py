@@ -82,13 +82,13 @@ with tempfile.TemporaryDirectory() as directory:
             assert page.evaluate('state.visible.every(r=>x(r)>=2&&x(r)<=4)')
             power=page.locator('[data-plot="battery:W"]')
             power.locator('input[placeholder="Y 최소"]').fill('0');power.locator('input[placeholder="Y 최대"]').fill('15000');power.get_by_text('Y 적용',exact=True).click()
-            page.wait_for_function("state.plots.find(p=>p.id==='battery:W').geometry.high===15000")
+            page.wait_for_function("state.plots.find(p=>p.id==='battery:W')?.geometry?.high===15000")
             page.locator('#powerUnit').select_option('kW')
-            page.wait_for_function("state.plots.find(p=>p.id==='battery:W').geometry.high===15")
+            page.wait_for_function("state.plots.find(p=>p.id==='battery:W')?.geometry?.high===15")
             assert power.locator('input[placeholder="Y 최대"]').input_value()=='15'
             assert page.evaluate('state.range')==[2,4]
             page.locator('#powerUnit').select_option('W')
-            page.wait_for_function("state.plots.find(p=>p.id==='battery:W').geometry.high===15000")
+            page.wait_for_function("state.plots.find(p=>p.id==='battery:W')?.geometry?.high===15000")
             power.get_by_text('Y 자동',exact=True).click()
             page.locator('#resetZoom').click();page.wait_for_function('state.visible.length===1007')
             power.locator('canvas.plot-overlay').scroll_into_view_if_needed();box=power.locator('canvas.plot-overlay').bounding_box()

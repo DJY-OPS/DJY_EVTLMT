@@ -118,7 +118,7 @@ class TuningTests(unittest.TestCase):
             self.assertIsNone(project(p)['rpm_left_target'])
         self.assertEqual(set(rpm_status({'private': 'hidden'})),
                          {'rpm_left_quality', 'rpm_right_quality', 'rpm_left_rejected_pct',
-                          'rpm_right_rejected_pct', 'motor_command_mode'})
+                          'rpm_right_rejected_pct', 'motor_command_mode', 'speed_geometry'})
 
     def test_unrelated_group_fields_never_create_zero_measurements(self):
         store = TelemetryStore()

@@ -38,6 +38,44 @@ LOOP = [(0,-10),(0,10),(0,20),(10,20),(20,20),(20,10),(20,0),
 
 
 class GNSSTests(unittest.TestCase):
+    def test_driver_delta_uses_adjacent_completed_laps_and_resets(self):
+        m=GNSSManager();setup(m)
+        self.assertIsNone(m.telemetry()['lap_delta_s'])
+        for i,(x,y) in enumerate(LOOP):feed(m,x,y,1001+i)
+        self.assertIsNone(m.telemetry()['lap_delta_s'])
+        for i,(x,y) in enumerate([(0,20)]*2+LOOP[2:]):feed(m,x,y,1014+i)
+        t=m.telemetry()
+        self.assertEqual(t['gnss_lap_count'],2)
+        self.assertAlmostEqual(t['previous_lap_s'],11)
+        self.assertAlmostEqual(t['last_lap_s'],13)
+        self.assertAlmostEqual(t['lap_delta_s'],2)
+        self.assertEqual(t['gnss_run_id'],m.run_id)
+        m.command({'action':'stop'})
+        m.command({'action':'start'},now=1026.1)
+        self.assertIsNone(m.telemetry()['lap_delta_s'])
+        self.assertIsNone(m.telemetry()['previous_lap_s'])
+
+    def test_ninety_minute_lap_archive_and_restart(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path=Path(folder)/'endurance.db';db=TelemetryDatabase(path)
+            try:
+                m=GNSSManager(db.gnss);setup(m)
+                for second in range(5400):
+                    x,y=LOOP[second] if second<len(LOOP) else LOOP[2:][(second-len(LOOP))%11]
+                    feed(m,x,y,1001+second)
+                self.assertEqual(len(m.laps),490)
+                self.assertTrue(all(abs(lap['lap_time_s']-11)<1e-6 for lap in m.laps))
+                run=m.run_id
+                self.assertEqual(db._connection.execute('SELECT COUNT(*) FROM gnss_fixes WHERE run_id=?',(run,)).fetchone()[0],5400)
+                self.assertEqual(db._connection.execute('PRAGMA quick_check').fetchone()[0],'ok')
+                self.assertEqual(db._connection.execute('PRAGMA foreign_key_check').fetchall(),[])
+            finally:db.close()
+            db=TelemetryDatabase(path)
+            try:
+                self.assertEqual(db.gnss.runs()[0]['status'],'INTERRUPTED')
+                self.assertEqual(len(db.gnss.history(run)['laps']),490)
+            finally:db.close()
+
     def test_short_lap_ignores_legacy_minimum_settings(self):
         m=GNSSManager();setup(m)
         m.gate.update(min_lap_s=3600,min_distance_m=10000)

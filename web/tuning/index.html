@@ -4,11 +4,25 @@
 <header><div><div class="brand">DJY MOTORSPORT · LIVE TELEMETRY</div><h1>EV 피트 대시보드</h1><small>목표와 실제 응답을 같은 시간축에서 비교</small></div><div><div id="link">게이트웨이 연결 확인 중</div><div id="recordClock" style="font-size:28px;color:#00ffff;font-variant-numeric:tabular-nums">00:00:00</div><small id="recordStart">저장 시작 대기</small><div id="recordStatus" class="muted">기록 상태 확인 중</div></div></header>
 <p id="signalStatus" role="status" style="margin:0 20px 12px;color:#ffff00"></p>
 <div class="layout"><aside>
-<section class="panel channel-panel"><h2>용도별 신호</h2><small>체크 해제해도 DB 기록은 계속됩니다.</small><div id="channels"></div></section>
+<section class="panel stack"><h2>드라이빙 코칭</h2><a href="/coach" target="_blank" rel="noopener">속도 · TPS · 조향 · G-포스 · 랩타임 ↗</a></section>
+<section class="panel stack"><h2>드라이버 소통</h2><a href="/comms" target="_blank" rel="noopener">YELLOW · RED · BOX BOX · 메시지 발령 ↗</a><small>같은 서버의 드라이버 화면에 표시</small></section>
+<form id="geometryForm" class="panel stack">
+<h2>차속 환산 설정</h2>
+<label for="gearRatio">기어비 · 모터 회전수 / 바퀴 회전수</label>
+<input id="gearRatio" type="number" min="0.1" max="100" step="any" required disabled>
+<label for="tireDiameterCm">타이어 지름 (cm)</label>
+<input id="tireDiameterCm" type="number" min="5" max="300" step="any" required disabled>
+<button id="geometrySave" type="submit" class="primary" disabled>환산 설정 저장</button>
+<small id="geometryStatus" role="status">저장된 설정 확인 중</small>
+<small>텔레메트리 차속 환산에 적용됩니다. STM 제어용 설정은 별도입니다.</small>
+</form>
+<section class="panel stack"><h2>차량 조정</h2><a href="/tv" target="_blank" rel="noopener">토크벡터링 강도 조정 ↗</a><small>피트 PC 로컬 접속에서 조정 · STM 응답 확인</small></section>
+
 <section class="panel stack"><h2>측정 기록</h2><input type="text" id="label" maxlength="80" placeholder="예: 주행 03 · Kp 0.8" aria-label="측정 이름"><button id="record" class="primary" disabled>측정 시작</button><small>측정 시작부터 수신 데이터를 저장합니다. 인터넷에서도 시작·종료할 수 있습니다.</small><button id="export">최근 버퍼 CSV 저장</button></section>
-<section class="panel stack"><h2>팀 공유</h2><button id="share">현재 화면 주소 복사</button><small>ngrok HTTPS 주소의 /pit 으로 함께 접속하세요. 팀 전체가 같은 측정 기록을 공유합니다.</small><a href="/battery" target="_blank" rel="noopener">배터리 전용 화면 ↗</a><a href="/driver" target="_blank" rel="noopener">운전자 화면 ↗</a><a href="/phone" target="_blank" rel="noopener">휴대폰 GPS 전송 ↗</a><a id="rawLink" href="/records" target="_blank" rel="noopener">저장 데이터 열람 ↗</a></section>
+<section class="panel stack"><h2>팀 공유</h2><button id="share">현재 화면 주소 복사</button><small>ngrok HTTPS 주소의 /pit 으로 함께 접속하세요. 팀 전체가 같은 측정 기록을 공유합니다.</small><a href="/battery" target="_blank" rel="noopener">배터리 전용 화면 ↗</a><a href="/driver" target="_blank" rel="noopener">운전자 화면 ↗</a><a href="/onboard" target="_blank" rel="noopener">온보드 중계 HUD ↗</a><a href="/phone" target="_blank" rel="noopener">휴대폰 GPS 전송 ↗</a><a id="rawLink" href="/records" target="_blank" rel="noopener">저장 데이터 열람 ↗</a></section>
 </aside><main>
-<section class="panel" style="margin-bottom:14px"><div class="panel-title"><h2>차속 · 현재 PID · TV / ED</h2><b id="telemetryContext" class="badge">현재 수신값</b></div><div class="metrics readouts" style="margin-top:12px"><div class="metric"><span>차속 · km/h</span><b id="speed" class="speed-value">미수신</b><small>RPM 품질 통과값 · 지름 45cm / 4:1</small></div>
+<section class="panel stack" style="margin-bottom:14px"><h2>차량 현재 상태 · 센서 · 고장</h2><div id="vehicle" role="status">미수신</div></section>
+<section class="panel" style="margin-bottom:14px"><div class="panel-title"><h2>차속 · 현재 PID · TV / ED</h2><b id="telemetryContext" class="badge">현재 수신값</b></div><div class="metrics readouts" style="margin-top:12px"><div class="metric"><span>차속 · km/h</span><b id="speed" class="speed-value">미수신</b><small id="speedGeometry">환산 설정 수신 대기</small></div>
 <div class="metric"><span>현재 PID · Kp / Ki / Kd</span><b id="pid">미수신</b><small id="pidNote">보드 보고값 수신 대기</small></div>
 <div class="metric"><span>제어 개입 상태</span><b id="tvMode">미수신</b><small>TV 폐루프 / ED 개루프 · 동시 개입 불가</small></div>
 <div class="metric"><span>vehicle_speed · m/s</span><b id="tv-vehicle_speed_m_s">미수신</b><small>기존 수신 · STM 계산 원본 / RPM 검증과 별개</small></div>
@@ -19,7 +33,7 @@
 <div class="metric"><span>traction_scale · 0..1</span><b id="tv-traction_scale">미수신</b><small>기존 수신 · 1 = 개입 축소 없음</small></div>
 <div class="metric"><span>tv_active · bool</span><b id="tv-tv_active">미수신</b><small>기존 수신 · 토크벡터링 폐루프</small></div>
 <div class="metric"><span>ed_active · bool</span><b id="tv-ed_active">미수신</b><small>기존 수신 · 전자식 디퍼런셜 개루프</small></div>
-</div><div class="warning">속도 = 좌우 평균 모터 RPM ÷ 4 × π × 0.45 × 60 ÷ 1000 (km/h). 타이어 포함 지름 45cm · 감속비 4:1. 슬립 시 실제 지면 속도와 다를 수 있습니다.</div></section>
+</div><div class="warning">속도 = 좌우 평균 모터 RPM ÷ 기어비 × π × 타이어 지름(m) × 60 ÷ 1000 (km/h). 설정은 차속 환산 설정에서 변경합니다. 슬립 시 실제 지면 속도와 다를 수 있습니다.</div></section>
 <div class="metrics"><div class="metric"><span>목표 yaw rate · rad/s</span><b id="desired">미수신</b></div><div class="metric"><span>현재 yaw rate · rad/s</span><b id="actual">미수신</b></div><div class="metric"><span>화면 계산 오차 · 목표 − 현재</span><b id="errorYaw">—</b></div><div class="metric"><span>표시 구간 RMS 오차 · rad/s</span><b id="rms">—</b></div></div>
 <section class="panel" style="margin-bottom:14px"><h2>좌우 모터 · RPM과 출력 명령</h2><small id="rpmContext">현재 수신값</small>
 <div class="motor-grid"><div><h2>왼쪽 모터</h2><dl><dt>측정 RPM · 품질 통과</dt><dd id="rpm-left">미수신</dd><dt>STM 보고 RPM · 검증 전</dt><dd id="reported-left">미수신</dd><dt>목표 RPM · 전송값</dt><dd id="target-left">미제공</dd><dt>전력 명령 · 실측 아님</dt><dd id="power-left">미수신</dd></dl><div id="quality-left" class="rpm-quality">수신 대기</div></div>
@@ -28,6 +42,7 @@
 <section class="panel" style="margin-bottom:14px"><div class="toolbar"><button id="live" class="primary">실시간 보기</button><select id="session" aria-label="과거 측정 세션"><option value="">과거 측정 선택</option></select><button id="reload">세션 새로고침</button></div>
 <div class="toolbar"><button id="pause">화면 일시정지</button><label>구간 <select id="window"><option value="10">10초</option><option value="30" selected>30초</option><option value="60">1분</option><option value="300">5분</option><option value="all">전체 페이지</option></select></label><button id="prev" disabled>이전 페이지</button><button id="next" disabled>다음 페이지</button><span id="mode" class="muted">실시간 · 수신 대기</span></div>
 <div class="toolbar"><span>과거</span><input type="range" id="scrub" min="0" max="1000" value="1000" aria-label="시간 탐색"><span>최근</span></div><div id="cursor"><strong id="cursorTime">수신 대기</strong><small id="cursorHint">마우스: 값 확인 · 좌클릭: 표시값 고정</small></div><div id="notice"></div><div id="error" role="alert"></div></section>
-<h2 class="section-heading">용도별 그래프 · 같은 시간축 / 창마다 독립 단위</h2><div id="delivery" class="panel" role="status">수집·전송 상태 확인 중</div><div id="plots"></div><p class="muted">묶음 전송도 표본별 취득 시각 간격을 유지합니다. 최근 버퍼 밖의 값은 저장 세션에서 조회할 수 있습니다. 미수신·오류는 선을 끊습니다.</p>
-<div class="overview"><section class="panel stack"><h2>차량 · 배터리 현재 상태</h2><div id="vehicle">미수신</div><div id="battery">BMS 미수신</div><div id="cells" class="cells"></div></section><section class="panel stack"><h2>GNSS 주행 궤적</h2><div id="gnss">위치 미수신</div><iframe title="GPS map" src="/map?embed=1" style="width:100%;height:350px;border:1px solid #555"></iframe><a href="/map" target="_blank" rel="noopener">GPS MAP / LAP TIMING</a></section></div>
-</main></div><script src="/records/clock.js"></script><script src="/tuning/app.js"></script></body></html>
+<h2 class="section-heading">차량 제어 · 상태 그래프</h2><div id="delivery" class="panel" role="status">수집·전송 상태 확인 중</div><section class="panel channel-panel"><h2>용도별 신호</h2><small>체크 해제해도 DB 기록은 계속됩니다.</small><div id="channels"></div></section>
+<div id="plots"></div><p class="muted">각 신호를 한 그래프에 겹쳐 표시합니다. 좌우 눈금은 단위별 독립 범위이며, 같은 높이가 같은 크기를 뜻하지 않습니다. 체크박스로 비교할 신호를 선택하세요. 최근 버퍼 밖의 값은 저장 세션에서 조회할 수 있습니다. 미수신·오류는 선을 끊습니다.</p>
+<section class="panel stack" style="margin-top:16px"><h2>GNSS 주행 궤적</h2><div id="gnss">위치 미수신</div><iframe title="GPS map" src="/map?embed=1" style="width:100%;height:350px;border:1px solid #555"></iframe><a href="/map" target="_blank" rel="noopener">GPS MAP / LAP TIMING</a></section>
+</main></div><script src="/records/clock.js"></script><script src="/tuning/geometry.js"></script><script src="/tuning/app.js"></script></body></html>

@@ -26,7 +26,11 @@ class RecordingTests(unittest.TestCase):
                 self.assertEqual(started['recording_sample_count'], 0)
                 with patch('ev_gateway.time.monotonic', return_value=gateway.database._clock_anchor+12.5):
                     self.assertAlmostEqual(gateway.database.status()['recording_elapsed_s'], 12.5)
-                gateway.accept({'seq': 17, 'rpm_left': 321, 'private': 'must stay local'})
+                gateway.accept({'seq': 17, 'rpm_left': 321, 'private': 'must stay local',
+                                'imu_ok': True, 'imu_online': True,
+                                'longitudinal_accel_m_s2': 1.25, 'lateral_accel_m_s2': -.5,
+                                'bms_online': True, 'battery_pack_voltage_v': 57.8,
+                                'battery_current_a': -2.0})
                 gateway.database.close()
                 gateway.database = TelemetryDatabase(path)
                 resumed = gateway.database.status()
@@ -43,6 +47,10 @@ class RecordingTests(unittest.TestCase):
                 self.assertGreaterEqual(sample['elapsed_s'], -.001)
                 self.assertNotIn('must stay local', json.dumps(sample))
                 self.assertIn('rpm_left', sample['values'])
+                self.assertEqual(sample['values']['longitudinal_accel_m_s2'], 1.25)
+                self.assertEqual(sample['values']['lateral_accel_m_s2'], -.5)
+                self.assertEqual(sample['values']['battery_pack_voltage_v'], 57.8)
+                self.assertEqual(sample['values']['battery_current_a'], -2.0)
                 gateway.database.close()
                 gateway.database = TelemetryDatabase(path)
                 self.assertFalse(gateway.database.status()['recording_active'])
