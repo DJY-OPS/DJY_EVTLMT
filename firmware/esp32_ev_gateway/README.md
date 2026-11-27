@@ -149,3 +149,33 @@ python3 -m unittest discover -s tests -p test_esp_bms_packet.py -v
 The checks exercise the actual firmware's scheduling/decoding/JSON code,
 including separate detail polls, TX failure, delayed loops, clock rollover,
 power-specific freshness, and maximum-width diagnostics with 48 cell values.
+
+### F2001 engine audio (modern esp32-s3-r8)
+
+The standard R8 gateway build includes 32 kHz mono cockpit PCM loops and a
+downshift sample in application flash. No SD card is required. Output is
+Philips I2S, 16-bit stereo with the same engine mix in both channels.
+
+| ESP32-S3 | PCM5102A DAC (3-wire I2S mode) |
+|---|---|
+| GPIO5 | BCK |
+| GPIO6 | LRCK / WS |
+| GPIO7 | DIN |
+| GND | GND |
+
+Power the DAC according to the breakout specification. Connect its stereo
+line output to an amplifier or powered speaker AUX input. A MAX98357A
+speaker output must not be wired into a grounded AUX cable.
+
+Build from the repository root with the existing scripts/build_esp_gateway.ps1
+workflow. On boot check for `# F2001 I2S ready BCLK=5 WS=6 DOUT=7`.
+The binary rear UART supplies pedal and mean motor RPM. Audio uses the
+42 cm tire, 4.777777 reduction and sound-only shifts at 20/30/41/52/63/73 km/h.
+A separate task mixes 128-frame blocks. Stale input (300 ms) fades to silence.
+
+The game-derived PCM is a local build input. Copy your existing
+`src/f2001.pcm` from the local EVTLMT audio build into this project's
+`firmware/esp32_ev_gateway/src/` before building the R8 target. It must
+contain 11 consecutive blocks of 32,768 little-endian signed 16-bit samples
+(720,896 bytes total). The first ten blocks follow the layer table in
+`src/engine_audio.cpp`, followed by the downshift sample.

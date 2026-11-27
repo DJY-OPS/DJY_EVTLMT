@@ -1,4 +1,7 @@
 #include <Arduino.h>
+#if EV_F2001_AUDIO
+#include "engine_audio.h"
+#endif
 #include <HTTPClient.h>
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
@@ -833,6 +836,11 @@ bool parseRearTelemetry(const uint8_t* data, size_t size) {
     state.configAck = liveCommandSeen && state.configSequence == liveCommand.sequence;
     const bool controlFresh = (p.flags & DJY_TM_CONTROL_FRESH) != 0u;
     state.driverMs = controlFresh ? now : 0u;
+#if EV_F2001_AUDIO
+    const bool stopped = !state.rpmLeft && !state.rpmRight;
+    setEngineAudioInput(0.5f * (state.rpmLeft + state.rpmRight), throttlePercent(),
+                        controlFresh && (stopped || (state.rpmLeftValid && state.rpmRightValid)));
+#endif
     state.edActive = (p.flags & DJY_TM_ED_ACTIVE) != 0u;
     state.rearFlags = 0u;
     if (controlFresh) state.rearFlags |= DJY_REAR_STATUS_CONTROL_FRESH;
@@ -1539,6 +1547,9 @@ void setup() {
 #if EV_RELAY_ENABLED
     if (relaySamples)
         xTaskCreatePinnedToCore(relayTask, "ev-https-relay", 12288, nullptr, 0, nullptr, 0);
+#endif
+#if EV_F2001_AUDIO
+    startEngineAudio();
 #endif
     Serial.println("# DJY ESP gateway ready");
 }
