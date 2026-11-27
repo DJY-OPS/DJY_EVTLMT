@@ -17,6 +17,12 @@ STM·ESP·BMS·휴대폰 GPS 데이터를 수신하고 저장하는 웹 텔레�
 STM 제어용 차속은 원본을 유지합니다. ESP 자체 환산값과 PC 설정은 별도이며 PC가 유효한 RPM으로 재계산합니다.
 표본의 `speed_geometry`에 기어비·지름(m)·계산 버전을 함께 기록하며, 과거 기록과 CSV는 당시 값을 유지합니다.
 
+## 가상 엔진음 배선
+
+[ESP32-S3 → PCM5102A → Britz AUX 핀맵과 검증 결과](docs/F2001_AUX_KO.md)
+
+![F2001 오디오 신호 배선](docs/images/f2001-aux-wiring.png)
+
 ## 실행
 
 `start_telemetry.bat`을 실행하면 텔레메트리 서버를 시작하고 브라우저를 엽니다.
